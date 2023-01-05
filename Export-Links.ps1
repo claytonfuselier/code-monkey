@@ -11,8 +11,9 @@
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Export-Links.ps1
 
 
-
-### Required variables
+##########################
+##  Required variables  ##
+##########################
 $gitroot = "" # Local cloned repository (ex. "C:\Users\<username>\git\<repo>")
 $exportpath = "" # Where to export the CSV (ex. "C:\Users\<username>\Documents")
 $domain = "" # Domain/FQDN to search for (ex. "sub.example.com")
