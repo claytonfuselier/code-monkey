@@ -7,6 +7,8 @@
 #
 # Note: Script ignores files located under any path containing the name "graveyard".
 # Note: Script accounts for plaintext and html-encoded URLs, as well as http and https.
+#
+# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Export-Links.ps1
 
 
 
