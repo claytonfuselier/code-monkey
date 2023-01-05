@@ -11,9 +11,9 @@
 
 
 ### Required variables
-$gitroot = "" # Local cloned repository
-$exportpath = "" # Where to export the CSV
-$domain = "" # "sub.example.com"
+$gitroot = "" # Local cloned repository (ex. "C:\Users\<username>\git\<repo>")
+$exportpath = "" # Where to export the CSV (ex. "C:\Users\<username>\Documents")
+$domain = "" # Domain/FQDN to search for (ex. "sub.example.com")
 
 
 
