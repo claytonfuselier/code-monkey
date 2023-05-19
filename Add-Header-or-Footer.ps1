@@ -5,6 +5,8 @@
 # Focus is on adding a header/footer, or other content, to the top or bottom of all .md files.
 #
 # Note: Script ignores files located under any "hidden" paths that begin with a period (".").
+#
+# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Add-Header-or-Footer.ps1
 
 
 
