@@ -5,10 +5,10 @@
 # Focus is on parsing .md files for URLs with a certain domain name and recording every instance in a CSV. Using a 
 # wildcard to find "all" URLs is not (currently) supported; a domain must be provided.
 #
-# Note: Script ignores files located under any path containing the name "graveyard".
 # Note: Script accounts for plaintext and html-encoded URLs, as well as http and https.
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Export-Links.ps1
+
 
 
 ##########################
@@ -27,7 +27,7 @@ $scriptstarttime = Get-Date
 $pagecnt = 0
 
 # Get pages
-$pages = Get-ChildItem -Path $gitroot -Recurse | where {$_.Extension -eq ".md" -and $_.DirectoryName -notlike "*graveyard*"}
+$pages = Get-ChildItem -Path $gitroot -Recurse | where {$_.Extension -eq ".md"}
 
 # Parse pages
 $pages | ForEach-Object {
