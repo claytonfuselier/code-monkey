@@ -68,3 +68,4 @@ $pages | ForEach-Object {
 
 Write-Host -ForegroundColor Yellow "Pages updated: $editedpages"
 Write-Host -ForegroundColor Yellow "Occurrences updated: $totaledits"
+
