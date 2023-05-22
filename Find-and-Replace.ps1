@@ -30,12 +30,12 @@ $scriptstart = Get-Date
 # Get pages
 $pages = Get-ChildItem -Path $gitroot -Recurse | where { $_.Extension -eq ".md" }
 
-# Parse Each Page
+# Parse each page
 $pagecnt = 0
 $totaledits = 0
 $editedpages = 0
 $pages | ForEach-Object {
-    # Output current page to host
+    # Console output for current page
     Write-Host -ForegroundColor Gray ("$($_.FullName.Replace($gitroot,''))")
 
     # Get page content
