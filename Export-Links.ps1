@@ -8,6 +8,7 @@
 # Note: The script accounts for plaintext and HTML-encoded URLs, as well as HTTP and HTTPS.
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Export-Links.ps1
+# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
 
 
 

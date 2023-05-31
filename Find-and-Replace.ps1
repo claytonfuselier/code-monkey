@@ -10,6 +10,7 @@
 #       backtick/grave accent (`).
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Find-and-Replace.ps1
+# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
 
 
 
