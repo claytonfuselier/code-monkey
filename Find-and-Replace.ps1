@@ -29,7 +29,7 @@ $replace = ""   # New content to replace the old content
 $scriptstart = Get-Date
 
 # Get pages
-$pages = Get-ChildItem -Path $gitroot -Recurse | where { $_.Extension -eq ".md" }
+$pages = Get-ChildItem -Path $gitroot -Recurse -Filter "*.md" -File
 
 # Parse each page
 $pagecnt = 0
