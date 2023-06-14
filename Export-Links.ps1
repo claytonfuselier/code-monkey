@@ -28,7 +28,7 @@ $scriptstarttime = Get-Date
 $pagecnt = 0
 
 # Get pages
-$pages = Get-ChildItem -Path $gitroot -Recurse | where { $_.Extension -eq ".md" }
+$pages = Get-ChildItem -Path $gitroot -Recurse -Filter "*.md" -File
 
 # Parse pages
 $pages | ForEach-Object {
