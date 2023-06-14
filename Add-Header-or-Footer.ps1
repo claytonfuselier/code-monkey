@@ -14,9 +14,9 @@
 ##########################
 ##  Required variables  ##
 ##########################
-$gitroot = ""        # Local cloned repository (e.g., "C:\Users\<username>\git\<repo>")
+$gitroot = ""       # Local cloned repository (e.g., "C:\Users\<username>\git\<repo>")
 $addwhere = "top"   # Add the content at the top or bottom of the page? (e.g., "top" or "bottom")
-$newcontent = ""    # Content to add. Line breaks are respected and added as well.
+$newcontent = ""    # Content to add (line breaks are supported)
 
 
 
