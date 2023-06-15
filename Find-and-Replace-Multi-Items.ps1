@@ -17,7 +17,7 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitroot = ""   # Local cloned repository (e.g., "C:\Users\<username>\git\<repo>")
+$gitroot = ""   # Local cloned repository (e.g., "<drive>:\path\to\repo")
 $csvpath = ""   # Path to CSV file
 
 
