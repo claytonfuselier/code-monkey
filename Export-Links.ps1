@@ -15,8 +15,8 @@
 ##########################
 ##  Required variables  ##
 ##########################
-$gitroot = ""      # Local cloned repository (e.g., "C:\Users\<username>\git\<repo>")
-$exportpath = ""   # Where to export the CSV (e.g., "C:\Users\<username>\Documents")
+$gitroot = ""      # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$exportfile = ""   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
 $domain = ""       # Domain/FQDN to search for (e.g., "sub.example.com")
 
 
@@ -54,7 +54,7 @@ $pages | ForEach-Object {
                 $resultsrow | Add-Member -Type NoteProperty -Name "PageName" -Value $pagename
                 $resultsrow | Add-Member -Type NoteProperty -Name "Line Number" -Value $line
                 $resultsrow | Add-Member -Type NoteProperty -Name "URL" -Value $_
-                $resultsrow | Export-Csv -Path "$exportpath\Links.csv" -NoTypeInformation -Append
+                $resultsrow | Export-Csv -Path $exportfile -NoTypeInformation -Append
                 Write-Host -ForegroundColor Yellow "Found Link"
             }
         }
