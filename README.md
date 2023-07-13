@@ -1,6 +1,8 @@
 # KM-Scripts
 
-This repository contains a collection of scripts I've created for performing bulk updates to articles in a code wiki in Azure DevOps, but they may also be useful in other scenarios.
+This repository contains a collection of scripts I've created to perform bulk updates to articles in a code based wiki in Azure DevOps (ADO), but they may also be useful in other scenarios.
+
+If you need help, review [this wiki page](https://github.com/claytonfuselier/KM-Scripts/wiki/How-To-(Azure-DevOps)) that walks you through setting up VS Code and cloning your ADO repo locally.
 
 ## Disclaimer
 
