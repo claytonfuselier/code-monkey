@@ -1,7 +1,7 @@
 # Code Monkey
 A collection of scripts I've created for various purposes and want to share.
 
-<hr>
+<br>
 
 # Disclaimer
 

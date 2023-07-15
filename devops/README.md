@@ -1,9 +1,9 @@
 # DevOps
 These are scripts I've created to perform bulk updates to articles in a code based wiki in Azure DevOps (ADO), but they may also be useful in other scenarios.
 
-If you need help getting started, [this wiki page](https://github.com/claytonfuselier/code-monkey/wiki) will walk you through setting up VS Code and cloning your ADO repo locally.
+If you need help getting started, [this wiki page](https://github.com/claytonfuselier/code-monkey/wiki/How-To-(Azure-DevOps)) will walk you through setting up VS Code and cloning your ADO repo locally.
 
-<hr>
+<br>
 
 # Disclaimer
 
