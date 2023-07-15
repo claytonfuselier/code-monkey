@@ -9,8 +9,8 @@
 # Note: The CSV should consist of two columns with the old string in column "OldString" and the new string
 #       in column "NewString".
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Find-and-Replace-Multi-Items.ps1
-# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/find-and-replace-multi-items.ps1
+# Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
 

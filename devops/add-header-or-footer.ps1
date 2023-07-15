@@ -6,8 +6,8 @@
 #
 # Note: The script ignores files located under any "hidden" paths that begin with a period (".").
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Add-Header-or-Footer.ps1
-# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/add-header-or-footer.ps1
+# Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
 

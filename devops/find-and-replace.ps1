@@ -9,8 +9,8 @@
 # Note: Regex is supported in the $find string. Be sure to escape special characters by using the
 #       backtick/grave accent (`).
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Find-and-Replace.ps1
-# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/find-and-replace.ps1
+# Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
 
