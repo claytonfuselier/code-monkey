@@ -10,8 +10,8 @@
 #       Example: $domain="example.com" and $allsubs=1, will match on example.com, x.example.com, y.x.example.com, etc.
 #       Example: $domain="sub.example.com" and $allsubs=0, will ONLY match on sub.example.com
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/Export-Links.ps1
-# Help: https://github.com/claytonfuselier/KM-Scripts/wiki
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/export-links.ps1
+# Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
 
