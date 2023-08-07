@@ -6,9 +6,7 @@ Some scripts I've written to either help others or to manage my own Azure subscr
 # Install
 These scripts require the use of the Azure Powershell module (Az).
 
-To install the module and more, see the [Azure Powershell README](https://github.com/Azure/azure-powershell/blob/master/README.md).
-
-Alternatively, you can use Azure CloudShell which has the Azure PowerShell module already installed. For more information [see this guide](https://docs.microsoft.com/en-us/azure/cloud-shell/overview).
+To install the module and more, see the [Azure Powershell README](https://github.com/Azure/azure-powershell/blob/master/README.md). Alternatively, you can use Azure CloudShell which has the Azure PowerShell module already installed. For more information [see this guide](https://docs.microsoft.com/en-us/azure/cloud-shell/overview).
 
 <br>
 
