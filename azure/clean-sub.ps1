@@ -197,94 +197,96 @@ if($rsvaults -gt 0){
         $vault = $_
 
         # Skip if RG is locked
-        if ($lockedrgs -notcontains $_.ResourceGroupName) {
+        if ($lockedrgs -notcontains $vault.ResourceGroupName) {
+            Write-Host -ForegroundColor Cyan "Beginning removal of vault '$($vault.Name)'..."
 
             # Set context
-            Set-AzRecoveryServicesAsrVaultContext -Vault $vault
+            Set-AzRecoveryServicesAsrVaultContext -Vault $vault > $null
 
             # Disable Soft Delete
-            Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable
-            Write-Host "Soft delete disabled for vault '$($vault.Name)'"
+            Write-Host -ForegroundColor DarkGray "Disabling soft delete..."
+            Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable > $null
+            
 
             # Fetch backup items in soft delete state
-            $softdeleteditems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object {$_.DeleteState -eq "ToBeDeleted"} 
+            $softdeleteditems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object {$_.DeleteState -eq "ToBeDeleted"}
             $softdeleteditems | ForEach-Object {
                 # Undelete items in soft delete state
-                Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force
+                Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force > $null
             }
 
             # Disable Security features (Enhanced Security) to remove MARS/MAB/DPM servers
             Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true
-            Write-Host "Disabled Security features for the vault"
+            Write-Host -ForegroundColor DarkGray "Disabled Security features for the vault..."
 
 
             ### Stop backup and delete backup items
             # Azure VM
+            Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure VM backup items..."
             $backupItemsVM = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID
-            $backupItemsVM | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $item -VaultId $vault.ID -RemoveRecoveryPoints -Force}
-            Write-Host "Disabled and deleted Azure VM backup items"
+            $backupItemsVM | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null}
 
             # SQL Server in Azure VM
+            Write-Host -ForegroundColor DarkGray "Disabling and deleting SQL Server backup items..."
             $backupItemsSQL = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType MSSQL -VaultId $vault.ID
-            $backupItemsSQL | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $item -VaultId $vault.ID -RemoveRecoveryPoints -Force}
-            Write-Host "Disabled and deleted SQL Server backup items"
-
+            $backupItemsSQL | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null}
+            
             # Disable auto-protection for SQL
+            Write-Host -ForegroundColor DarkGray "Disabling auto-protection and deleted SQL protectable items..."
             $protectableItemsSQL = Get-AzRecoveryServicesBackupProtectableItem -WorkloadType MSSQL -VaultId $vault.ID | Where-Object {$_.IsAutoProtected -eq $true}
-            $protectableItemsSQL | ForEach-Object {Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $item -VaultId $vault.ID}
-            Write-Host "Disabled auto-protection and deleted SQL protectable items"
+            $protectableItemsSQL | ForEach-Object {Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $_ -VaultId $vault.ID > $null}
 
             # Unregister SQL Server in Azure VM
+            Write-Host -ForegroundColor DarkGray "Deleting SQL Servers in Azure VM containers..."
             $backupContainersSQL = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object {$_.ExtendedInfo.WorkloadType -eq "SQL"}
-            $backupContainersSQL | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $item -Force -VaultId $vault.ID}
-            Write-Host "Deleted SQL Servers in Azure VM containers"
+            $backupContainersSQL | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null}
 
             # SAP HANA in Azure VM
+            Write-Host -ForegroundColor DarkGray "Disabling and deleting SAP HANA backup items..."
             $backupItemsSAP = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType SAPHanaDatabase -VaultId $vault.ID
-            $backupItemsSAP | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $item -VaultId $vault.ID -RemoveRecoveryPoints -Force}
-            Write-Host "Disabled and deleted SAP HANA backup items"
+            $backupItemsSAP | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null}
 
             # Unregister SAP HANA in Azure VM
+            Write-Host -ForegroundColor DarkGray "Deleting SAP HANA in Azure VM containers..."
             $backupContainersSAP = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object {$_.ExtendedInfo.WorkloadType -eq "SAPHana"}
-            $backupContainersSAP | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $item -Force -VaultId $vault.ID }
-            Write-Host "Deleted SAP HANA in Azure VM containers"
+            $backupContainersSAP | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null}
 
             # Azure File Shares
+            Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure File Share backups..."
             $backupItemsAFS = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureStorage -WorkloadType AzureFiles -VaultId $vault.ID
-            $backupItemsAFS | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $item -VaultId $vault.ID -RemoveRecoveryPoints -Force}
-            Write-Host "Disabled and deleted Azure File Share backups"
+            $backupItemsAFS | ForEach-Object {Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null}
 
             # Unregister storage accounts
+            Write-Host -ForegroundColor DarkGray "Unregistering Storage Accounts..."
             $StorageAccounts = Get-AzRecoveryServicesBackupContainer -ContainerType AzureStorage -VaultId $vault.ID
-            $StorageAccounts | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -container $item -Force -VaultId $vault.ID}
-            Write-Host "Unregistered Storage Accounts"
+            $StorageAccounts | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -container $_ -Force -VaultId $vault.ID > $null}
 
             # Unregister MARS servers
+            Write-Host -ForegroundColor DarkGray "Deleting MARS Servers..."
             $backupServersMARS = Get-AzRecoveryServicesBackupContainer -ContainerType "Windows" -BackupManagementType MAB -VaultId $vault.ID
-            $backupServersMARS | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $item -Force -VaultId $vault.ID}
-            Write-Host "Deleted MARS Servers"
+            $backupServersMARS | ForEach-Object {Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null}
 
             # Unregister MABS servers
+            Write-Host -ForegroundColor DarkGray "Deleting MAB Servers..."
             $backupServersMABS = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID| Where-Object { $_.BackupManagementType -eq "AzureBackupServer" }
-            $backupServersMABS | ForEach-Object {Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $item -VaultId $vault.ID}
-            Write-Host "Deleted MAB Servers"
+            $backupServersMABS | ForEach-Object {Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null}
 
             # Unregister DPM servers
+            Write-Host -ForegroundColor DarkGray "Deleting DPM Servers..."
             $backupServersDPM = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType-eq "SCDPM" }
-            $backupServersDPM | ForEach-Object {Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $item -VaultId $vault.ID}
-            Write-Host "Deleted DPM Servers"
-            #Write-Host "Ensure that you stop protection and delete backup items from the respective MARS, MAB and DPM consoles as well. Visit https://go.microsoft.com/fwlink/?linkid=2186234 to learn more." -ForegroundColor Yellow
+            $backupServersDPM | ForEach-Object {Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null}
             
-            $pvtendpoints = Get-AzPrivateEndpointConnection -PrivateLinkResourceId $VaultToDelete.ID
+            # Remove private endpoints
+            Write-Host -ForegroundColor DarkGray "Removing private endpoints..."
+            $pvtendpoints = Get-AzPrivateEndpointConnection -PrivateLinkResourceId $vault.ID
             $pvtendpoints | ForEach-Object {
 		            $penamesplit = $_.Name.Split(".")
 		            $pename = $penamesplit[0]
                     # Remove private endpoint connections
-                    Remove-AzPrivateEndpointConnection -ResourceId $_.Id -Force
+                    Remove-AzPrivateEndpointConnection -ResourceId $_.Id -Force > $null
                     # Remove private endpoints
-                    Remove-AzPrivateEndpoint -Name $pename -ResourceGroupName $ResourceGroup -Force
+                    Remove-AzPrivateEndpoint -Name $pename -ResourceGroupName $vault.ResourceGroupName -Force > $null
 	            }
-            Write-Host "Removed Private Endpoints"
 
             # Deletion of ASR Items
             $fabricObjects = Get-AzRecoveryServicesAsrFabric
@@ -297,17 +299,17 @@ if($rsvaults -gt 0){
                     # DisableDR all protected items
                     $protectedItems = Get-AzRecoveryServicesAsrReplicationProtectedItem -ProtectionContainer $_
                     $protectedItems | ForEach-Object {
-                        Write-Host "Triggering DisableDR(Purge) for item:" $_.Name
-                        Remove-AzRecoveryServicesAsrReplicationProtectedItem -InputObject $_ -Force
-                        Write-Host "DisableDR(Purge) completed"
+                        Write-Host -ForegroundColor DarkGray "Triggering DisableDR(Purge) for item:" $_.Name
+                        Remove-AzRecoveryServicesAsrReplicationProtectedItem -InputObject $_ -Force > $null
+                        #Write-Host -ForegroundColor DarkGray "DisableDR(Purge) completed"
                     }
 
                     # Remove all Container Mappings
                     $containerMappings = Get-AzRecoveryServicesAsrProtectionContainerMapping -ProtectionContainer $_
                     $containerMappings | ForEach-Object {
-                        Write-Host "Triggering Remove Container Mapping: " $_.Name
-                        Remove-AzRecoveryServicesAsrProtectionContainerMapping -ProtectionContainerMapping $_ -Force
-                        Write-Host "Removed Container Mapping."
+                        Write-Host -ForegroundColor DarkGray "Triggering Remove Container Mapping: " $_.Name
+                        Remove-AzRecoveryServicesAsrProtectionContainerMapping -ProtectionContainerMapping $_ -Force > $null
+                        #Write-Host -ForegroundColor DarkGray "Removed Container Mapping."
                     }
                 }
                 $NetworkObjects = Get-AzRecoveryServicesAsrNetwork -Fabric $fabricObject
@@ -318,13 +320,13 @@ if($rsvaults -gt 0){
                     $NetworkMappings | ForEach-Object {
                         # Get the Network Mappings
                         $NetworkMapping = Get-AzRecoveryServicesAsrNetworkMapping -Name $_.Name -Network $PrimaryNetwork
-                        Remove-AzRecoveryServicesAsrNetworkMapping -InputObject $NetworkMapping
+                        Remove-AzRecoveryServicesAsrNetworkMapping -InputObject $NetworkMapping > $null
                     }
                 }
                 # Remove Fabric
-                Write-Host "Triggering Remove Fabric:" $fabricObject.FriendlyName
+                Write-Host -ForegroundColor DarkGray "Triggering Remove Fabric:" $fabricObject.FriendlyName
                 Remove-AzRecoveryServicesAsrFabric -InputObject $fabricObject -Force
-                Write-Host "Removed Fabric."
+                Write-Host -ForegroundColor DarkGray "Removed Fabric."
             }
 
 
@@ -334,11 +336,11 @@ if($rsvaults -gt 0){
                 'Content-Type'='application/json'
                 'Authorization'='Bearer ' + $token
             }
-            $restUri = 'https://management.azure.com/subscriptions/'+$subid+'/resourcegroups/'+$ResourceGroup+'/providers/Microsoft.RecoveryServices/vaults/'+$vault+'?api-version=2021-06-01&operation=DeleteVaultUsingPS'
+            $restUri = 'https://management.azure.com/subscriptions/'+$subid+'/resourcegroups/'+$vault.ResourceGroupName+'/providers/Microsoft.RecoveryServices/vaults/'+$vault.Name+'?api-version=2021-06-01&operation=DeleteVaultUsingPS'
             $response = Invoke-RestMethod -Uri $restUri -Headers $authHeader -Method DELETE
-            $VaultDeleted = Get-AzRecoveryServicesVault -Name $vault -ResourceGroupName $vault.ResourceGroupName -erroraction 'silentlycontinue'
+            $VaultDeleted = Get-AzRecoveryServicesVault -Name $vault.Name -ResourceGroupName $vault.ResourceGroupName -erroraction 'silentlycontinue'
             if ($VaultDeleted -eq $null){
-                Write-Host "Recovery Services Vault '$vault' successfully deleted"
+                Write-Host -ForegroundColor Cyan "Completed removal of vault '$($vault.Name)'..."
             }
 
         }
