@@ -342,7 +342,6 @@ if($rsvaults.Count -gt 0){
             if ($VaultDeleted -eq $null){
                 Write-Host -ForegroundColor Cyan "Completed removal of vault '$($vault.Name)'..."
             }
-        break
         }
     }
 }
