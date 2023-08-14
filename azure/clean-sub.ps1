@@ -19,6 +19,7 @@
 ##  Required variables  ##
 ##########################
 $subid = ""               # ID for the subscription to be purged.
+$skipclassic = 1          # Whether to skip checking for classic resources; (1=skip, 0=check)
 $showerrors = $false      # Some errors are expected, so they are hidden by default.
 
 
@@ -127,6 +128,21 @@ if ($az) {
 }
 
 
+# Check for Azure module
+if (-not $skipclassic) {
+    Write-Host -ForegroundColor Cyan "Checking for (classic) Azure module..."
+    $asmazure = (Get-InstalledModule -Name Azure -ErrorAction SilentlyContinue).Version
+    if (-not $asmazure) {
+        Write-Host -ForegroundColor Red "You elected to check classic resources but do not have the (classic) Azure PowerShell module installed."
+        Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Azure', then re-run this script."
+        exit
+    }
+    if ($asmazure) {
+        Write-Host -ForegroundColor DarkGray "Version $asmazure is installed."
+    }
+}
+
+
 
 ##################################### Add option to install Az module updates if detected
 
@@ -154,6 +170,25 @@ $login = Connect-AzAccount
 }
 
 
+# Login to Azure (classic)
+if (-not $skipclassic) {
+    Write-Host -ForegroundColor Cyan "Checking if connected to Azure (classic)..."
+    $classicuser = (Get-AzureAccount).Id
+    if (-not $classicuser) {
+        Write-Host -ForegroundColor DarkGray "Not authenticated to Azure (Classic)."
+        Write-Host -ForegroundColor Cyan "Prompting for authentication..."
+    $classiclogin = Add-AzureAccount
+        if (-not $classiclogin) {
+            Write-Host -ForegroundColor Red "Authentication to Azure (Classic) failed or was not completed."
+            Write-Host -ForegroundColor Red "If you want to skip classic resource, set '`$skipclassic' variable to '1'."
+            exit
+        }
+    } else {
+        Write-Host -ForegroundColor DarkGray "Logged in with user '$classicuser'"
+    }
+}
+
+
 # Select subscription
 Write-Host -ForegroundColor Cyan "Checking subscription..."
 $sub = Select-AzSubscription -Subscription $subid
@@ -163,6 +198,9 @@ if (-not $sub) {
     exit
 } else {
     Write-Host -ForegroundColor DarkGray "Located subscription '$subid'."
+}
+if (-not $skipclassic) {
+    Select-AzureSubscription -SubscriptionId $subid
 }
 
 
@@ -345,6 +383,16 @@ if($rsvaults.Count -gt 0){
         }
     }
 }
+
+
+# Classic Resources
+if (-not $skipclassic) {
+    # VM Images
+    
+}
+
+
+
 
 
 # Remove Resource Groups
