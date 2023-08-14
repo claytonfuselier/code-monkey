@@ -19,7 +19,7 @@
 ##  Required variables  ##
 ##########################
 $subid = ""               # ID for the subscription to be purged.
-$skipclassic = 1          # Whether to skip checking for classic resources; (1=skip, 0=check)
+$skipclassic = 0          # Whether to skip checking for classic resources; (1=skip, 0=check)
 $showerrors = $false      # Some errors are expected, so they are hidden by default.
 
 
@@ -199,6 +199,9 @@ if (-not $sub) {
 } else {
     Write-Host -ForegroundColor DarkGray "Located subscription '$subid'."
 }
+
+
+# Select subscription (classic)
 if (-not $skipclassic) {
     Select-AzureSubscription -SubscriptionId $subid
 }
@@ -387,12 +390,27 @@ if($rsvaults.Count -gt 0){
 
 # Classic Resources
 if (-not $skipclassic) {
-    # VM Images
-    
+    # Storage accounts (classic) pending migration
+    Write-Host -ForegroundColor DarkGray "Aborting storage (classic) migrations..."
+    $sapending = Get-AzureStorageAccount | Where-Object {$_.MigrationState -ne $null}
+    $sapending | ForEach-Object {
+        Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort > $null
+    }
+        
+    # VM Images (classic)
+    Write-Host -ForegroundColor DarkGray "Deleting VM Images (classic)..."
+    $classicimages = Get-AzureVMImage | Where-Object { $_.PublisherName -eq $null }
+    $classicimages | ForEach-Object{
+        Remove-AzureVMImage -ImageName $_.ImageName -DeleteVHD > $null
+    }
+
+    # Disks (classic)
+    Write-Host -ForegroundColor DarkGray "Deleting disks (classic)..."
+    $classicdisks = Get-AzureDisk
+    $classicdisks | ForEach-Object {
+        Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD
+    }
 }
-
-
-
 
 
 # Remove Resource Groups
