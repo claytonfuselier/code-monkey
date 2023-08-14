@@ -187,14 +187,6 @@ $lockedrgs = $lockedrgs | select -Unique
 Write-Host -ForegroundColor DarkGray "Found $($lockedrgs.Count) resource group(s) that are locked or contain locked resources."
 
 
-
-
-
-
-
-
-
-
 # Recovery vaults
 $rsvaults = Get-AzRecoveryServicesVault
 if($rsvaults -gt 0){
@@ -284,6 +276,15 @@ if($rsvaults -gt 0){
             #Write-Host "Ensure that you stop protection and delete backup items from the respective MARS, MAB and DPM consoles as well. Visit https://go.microsoft.com/fwlink/?linkid=2186234 to learn more." -ForegroundColor Yellow
             
             $pvtendpoints = Get-AzPrivateEndpointConnection -PrivateLinkResourceId $VaultToDelete.ID
+            $pvtendpoints | ForEach-Object {
+		            $penamesplit = $_.Name.Split(".")
+		            $pename = $penamesplit[0]
+                    # Remove private endpoint connections
+                    Remove-AzPrivateEndpointConnection -ResourceId $_.Id -Force
+                    # Remove private endpoints
+                    Remove-AzPrivateEndpoint -Name $pename -ResourceGroupName $ResourceGroup -Force
+	            }
+            Write-Host "Removed Private Endpoints"
 
             # Deletion of ASR Items
             $fabricObjects = Get-AzRecoveryServicesAsrFabric
@@ -325,19 +326,24 @@ if($rsvaults -gt 0){
                 Remove-AzRecoveryServicesAsrFabric -InputObject $fabricObject -Force
                 Write-Host "Removed Fabric."
             }
+
+
+            $accesstoken = Get-AzAccessToken
+            $token = $accesstoken.Token
+            $authHeader = @{
+                'Content-Type'='application/json'
+                'Authorization'='Bearer ' + $token
+            }
+            $restUri = 'https://management.azure.com/subscriptions/'+$subid+'/resourcegroups/'+$ResourceGroup+'/providers/Microsoft.RecoveryServices/vaults/'+$vault+'?api-version=2021-06-01&operation=DeleteVaultUsingPS'
+            $response = Invoke-RestMethod -Uri $restUri -Headers $authHeader -Method DELETE
+            $VaultDeleted = Get-AzRecoveryServicesVault -Name $vault -ResourceGroupName $vault.ResourceGroupName -erroraction 'silentlycontinue'
+            if ($VaultDeleted -eq $null){
+                Write-Host "Recovery Services Vault '$vault' successfully deleted"
+            }
+
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 # Remove Resource Groups
