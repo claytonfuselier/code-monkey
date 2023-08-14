@@ -169,7 +169,7 @@ if (-not $sub) {
 # Get resource groups
 Write-Host -ForegroundColor Cyan "Getting resource groups..."
 $rglist = Get-AzResourceGroup
-if ($rglist -lt 1) {
+if ($rglist.Count -lt 1) {
     Write-Host -ForegroundColor DarkGray "You do not have any resource groups."
     exit
 }
@@ -189,7 +189,7 @@ Write-Host -ForegroundColor DarkGray "Found $($lockedrgs.Count) resource group(s
 
 # Recovery vaults
 $rsvaults = Get-AzRecoveryServicesVault
-if($rsvaults -gt 0){
+if($rsvaults.Count -gt 0){
     Write-Host -ForegroundColor Cyan "$($rsvaults.Count) Recovery Service Vaults were detected."
     Write-Host -ForegroundColor Yellow "NOTICE: Removal of Recovery Service Vaults is a lengthy and time consuming process. Please be patient..."
     # Begin removals
@@ -342,7 +342,7 @@ if($rsvaults -gt 0){
             if ($VaultDeleted -eq $null){
                 Write-Host -ForegroundColor Cyan "Completed removal of vault '$($vault.Name)'..."
             }
-
+        break
         }
     }
 }
