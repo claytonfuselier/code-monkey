@@ -408,7 +408,7 @@ if (-not $skipclassic) {
     Write-Host -ForegroundColor DarkGray "Deleting disks (classic)..."
     $classicdisks = Get-AzureDisk
     $classicdisks | ForEach-Object {
-        Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD
+        Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD > $null
     }
 }
 
