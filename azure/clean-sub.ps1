@@ -205,7 +205,7 @@ if($rsvaults.Count -gt 0){
 
             # Disable Soft Delete
             Write-Host -ForegroundColor DarkGray "Disabling soft delete..."
-            Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable | Out-Null
+            Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable > $null
             
 
             # Fetch backup items in soft delete state
@@ -217,7 +217,7 @@ if($rsvaults.Count -gt 0){
 
             # Disable Security features (Enhanced Security) to remove MARS/MAB/DPM servers
             Write-Host -ForegroundColor DarkGray "Disabling Security features for the vault..."
-            Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true
+            Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true > $null
 
 
             ### Stop backup and delete backup items
