@@ -14,45 +14,45 @@
 ##########################
 ##  Required variables  ##
 ##########################
-$gitroot = ""       # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$addwhere = "top"   # Add the content at the top or bottom of the page? (e.g., "top" or "bottom")
-$newcontent = ""    # Content to add (line breaks are supported)
+$gitRoot = ""       # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$addWhere = "top"   # Add the content at the top or bottom of the page? (e.g., "top" or "bottom")
+$newContent = ""    # Content to add (line breaks are supported)
 
 
 
 ####################
 ##  Begin Script  ##
 ####################
-$scriptstarttime = Get-Date
-$pagecnt = 0
-$updpagecnt = 0
+$scriptStartTime = Get-Date
+$pageCnt = 0
+$updPageCnt = 0
 
 # Get all pages
-$pages = Get-ChildItem -Path $gitroot -Recurse | where { $_.Extension -eq ".md" -and $_.DirectoryName -notlike "*.*" }
+$pages = Get-ChildItem -Path $gitRoot -Recurse | where { $_.Extension -eq ".md" -and $_.DirectoryName -notlike "*.*" }
 
 # Parse each page
 $pages | ForEach-Object {
-    $fullpath = $_.FullName
-    $_.FullName.Replace($gitroot, "") | Write-Host
+    $fullPath = $_.FullName
+    $_.FullName.Replace($gitRoot, "") | Write-Host
 
     # Get page contents and add new content
-    switch ($addwhere) {
-        "top" { $pagecontent = $newcontent + "`n" + (Get-Content -LiteralPath $fullpath -Raw); break }
-        "bottom" { $pagecontent = (Get-Content -LiteralPath $fullpath -Raw) + "`n" + $newcontent; break }
-        default { Write-Host -ForegroundColor Red -BackgroundColor Black "You must specify a valid value for `"`$addwhere`" before executing this script."; exit }
+    switch ($addWhere) {
+        "top" { $pageContent = $newContent + "`n" + (Get-Content -LiteralPath $fullPath -Raw); break }
+        "bottom" { $pageContent = (Get-Content -LiteralPath $fullPath -Raw) + "`n" + $newContent; break }
+        default { Write-Host -ForegroundColor Red -BackgroundColor Black "You must specify a valid value for `"`$addWhere`" before executing this script."; exit }
     }
 
     # Save modified page content
-    Set-Content -LiteralPath $fullpath -Encoding UTF8 -Value $pagecontent
-    $updpagecnt++
+    Set-Content -LiteralPath $fullPath -Encoding UTF8 -Value $pageContent
+    $updPageCnt++
 
     # Progress bar
-    $pagecnt++
-    $avg = ((Get-Date) - $scriptstarttime).TotalMilliseconds / $pagecnt
-    $msleft = (($pages.Count - $pagecnt) * $avg)
-    $time = New-TimeSpan -Seconds ($msleft / 1000)
-    $percent = [Math]::Round(($pagecnt / $pages.Count) * 100, 2)
-    Write-Progress -Activity "Adding content... ($percent %)" -Status "$pagecnt of $($pages.Count) total pages - $time" -PercentComplete $percent
+    $pageCnt++
+    $avg = ((Get-Date) - $scriptStartTime).TotalMilliseconds / $pageCnt
+    $msLeft = (($pages.Count - $pageCnt) * $avg)
+    $time = New-TimeSpan -Seconds ($msLeft / 1000)
+    $percent = [Math]::Round(($pageCnt / $pages.Count) * 100, 2)
+    Write-Progress -Activity "Adding content... ($percent %)" -Status "$pageCnt of $($pages.Count) total pages - $time" -PercentComplete $percent
 }
 
-Write-Host "Pages Updated: $updpagecnt"
+Write-Host "Pages Updated: $updPageCnt"
