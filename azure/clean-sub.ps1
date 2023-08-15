@@ -1,9 +1,9 @@
 ###############
 ##  Summary  ##
 ###############
-# Remove all Azure resources from a subscription by deleting all resource groups. This is done
-# asynchronously by creating background jobs, which prevents delays while waiting for one group to
-# finish deleting before deleting the next.
+# Remove all Azure resources from a subscription by deleting every resource group. This is done
+# asynchronously by creating background PowerShell jobs, which prevents delays while waiting for
+# one group to finish deleting before deleting the next.
 #
 # This script is NOT perfect. I try expand and improve it as I come across blockers/failures while
 # using it.
@@ -13,6 +13,8 @@
 # Note: If there are cross-dependent resources in different resource groups, there may be dependency
 #       related failures for some jobs. Subsequent script executions *should* remove any resource groups
 #       that failed previously, assuming the dependencies were removed in the previous execution.
+# Note: You can optionally check for and remove certain classic (ASM) resources by setting $skipClassic
+#       to 0. This will also require you to have the classic (ASM) module "Azure" installed.
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/azure/clean-sub.ps1
 
@@ -22,7 +24,7 @@
 ##  Required variables  ##
 ##########################
 $subid = ""               # ID for the subscription to be purged.
-$skipclassic = 0          # Whether to skip checking for classic resources; (1=skip, 0=check)
+$skipclassic = 1          # Whether to skip checking for classic resources; (1=skip, 0=check)
 $showerrors = $false      # Some errors are expected, so they are hidden by default.
 
 
