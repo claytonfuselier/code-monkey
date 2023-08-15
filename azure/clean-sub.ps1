@@ -1,13 +1,16 @@
 ###############
 ##  Summary  ##
 ###############
-# Quickly delete all Azure resouces from a subscription by deleting all resource groups. This is done
+# Remove all Azure resources from a subscription by deleting all resource groups. This is done
 # asynchronously by creating background jobs, which prevents delays while waiting for one group to
 # finish deleting before deleting the next.
 #
+# This script is NOT perfect. I try to expand and improve it as I come across blockers/failures while
+# using it.
+#
 # Note: If a resource group is locked, or if it contains at least one locked resource, the WHOLE resource
 #       group will be skipped.
-# Note: If there are cross-dependent resouces in different resouce groups, there may be dependency
+# Note: If there are cross-dependent resources in different resource groups, there may be dependency
 #       related failures for some jobs. Subsequent script executions *should* remove any resource groups
 #       that failed previously. Assuming the dependencies were removed in the previous execution.
 #
