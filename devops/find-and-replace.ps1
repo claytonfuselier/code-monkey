@@ -17,7 +17,7 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitroot = ""   # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$gitRoot = ""   # Local cloned repository (e.g., "<drive>:\path\to\repo")
 $find = ""      # String to find and replace. Supports regex (see note above)
 $replace = ""   # New content to replace the old content
 
@@ -26,47 +26,46 @@ $replace = ""   # New content to replace the old content
 ####################
 ##  Begin Script  ##
 ####################
-$scriptstart = Get-Date
+$scriptStart = Get-Date
 
 # Get pages
-$pages = Get-ChildItem -Path $gitroot -Recurse -Filter "*.md" -File
+$pages = Get-ChildItem -Path $gitRoot -Recurse -Filter "*.md" -File
 
 # Parse each page
-$pagecnt = 0
-$totaledits = 0
-$editedpages = 0
+$pageCnt = 0
+$totalEdits = 0
+$editedPages = 0
 $pages | ForEach-Object {
     # Console output for current page
-    Write-Host -ForegroundColor Gray ("$($_.FullName.Replace($gitroot,''))")
+    Write-Host -ForegroundColor Gray ("$($_.FullName.Replace($gitRoot,''))")
 
     # Get page content
-    $pagecontent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
+    $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
 
     # Counting/Checking for matches
-    $matches = ([regex]::Matches($pagecontent, [regex]::Escape($find), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    $matches = ([regex]::Matches($pageContent, [regex]::Escape($find), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
     if ($matches -gt 0) {
 
         # Find and replace
-        $newcontent = $pagecontent -ireplace [regex]::Escape($find), $replace
+        $newContent = $pageContent -ireplace [regex]::Escape($find), $replace
 
         # Save the new content
-        $newcontent | Set-Content -Encoding UTF8 -Path $_.FullName
+        $newContent | Set-Content -Encoding UTF8 -Path $_.FullName
 
         # Console output plus running tally
         Write-Host -ForegroundColor Cyan "Updated $matches occurrence(s)"
-        $totaledits += $matches
-        $editedpages++
+        $totalEdits += $matches
+        $editedPages++
     }
 
     # Progress bar
-    $pagecnt++
-    $avg = ((Get-Date) - $scriptstart).TotalMilliseconds / $pagecnt
-    $msleft = (($pages.Count - $pagecnt) * $avg)
-    $time = New-TimeSpan -Seconds ($msleft / 1000)
-    $percent = [Math]::Round(($pagecnt / $pages.Count) * 100, 2)
-    Write-Progress -Activity "Scanning pages: $percent %" -Status "$pagecnt of $($pages.Count) total pages - $time" -PercentComplete $percent
+    $pageCnt++
+    $avg = ((Get-Date) - $scriptStart).TotalMilliseconds / $pageCnt
+    $msLeft = (($pages.Count - $pageCnt) * $avg)
+    $time = New-TimeSpan -Seconds ($msLeft / 1000)
+    $percent = [Math]::Round(($pageCnt / $pages.Count) * 100, 2)
+    Write-Progress -Activity "Scanning pages: $percent %" -Status "$pageCnt of $($pages.Count) total pages - $time" -PercentComplete $percent
 }
 
-Write-Host -ForegroundColor Yellow "Pages updated: $editedpages"
-Write-Host -ForegroundColor Yellow "Occurrences updated: $totaledits"
-
+Write-Host -ForegroundColor Yellow "Pages updated: $editedPages"
+Write-Host -ForegroundColor Yellow "Occurrences updated: $totalEdits"
