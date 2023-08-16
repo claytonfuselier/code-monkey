@@ -407,10 +407,3 @@ Write-Host -ForegroundColor DarkGray "The script will continue to monitor the pr
 
 # Looping CheckJobs function
 CheckJobs
-
-
-# Remaining resource groups
-$rglist = Get-AzResourceGroup
-if($rglist.Count -gt 0){
-    Write-Host -ForegroundColor DarkGray "Note: $($rglist.Count) resource group(s) still exist."
-}
