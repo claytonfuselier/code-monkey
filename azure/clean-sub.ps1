@@ -105,7 +105,6 @@ function LatestModVer ($mod, $curVer) {
 }
 
 
-
 # Warning prompt
 Write-Host -ForegroundColor Red "WARNING - This script will attempt to DELETE ALL RESOURCES in subscription '$subID'! This cannot be undone!"
 Write-Host -ForegroundColor DarkGray `
@@ -122,41 +121,33 @@ if (-not $continueScript) {
 # Check for Az module
 Write-Host -ForegroundColor Cyan "Checking for the 'Az' module..."
 $az = (Get-InstalledModule -Name Az -ErrorAction SilentlyContinue).Version
-if (-not $az) {
-    Write-Host -ForegroundColor Red "You do not have the Az PowerShell module installed."
-    Write-Host -ForegroundColor DarkGray "Try installing the module with 'Install-Module -Name Az', then re-run this script."
-    exit
-}
 if ($az) {
     Write-Host -ForegroundColor DarkGray "Version $az is installed."
     LatestModVer -mod Az -curVer $az
+} else {
+    Write-Host -ForegroundColor Red "You do not have the Az PowerShell module installed."
+    Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Az', then re-run this script."
+    exit
 }
 
 
 # Check for the Azure (classic) module
 if (-not $skipClassic) {
     Write-Host -ForegroundColor Cyan "Checking for the 'Azure' (classic) module..."
-    $ASMazure = (Get-InstalledModule -Name Azure -ErrorAction SilentlyContinue).Version
-    if (-not $ASMazure) {
+    $asmAzure = (Get-InstalledModule -Name Azure -ErrorAction SilentlyContinue).Version
+    if ($asmAzure) {
+        Write-Host -ForegroundColor DarkGray "Version $asmAzure is installed."
+    } else {
         Write-Host -ForegroundColor Red "You elected to check classic resources but do not have the Azure (classic) PowerShell module installed."
         Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Azure', then re-run this script."
         exit
     }
-    if ($ASMazure) {
-        Write-Host -ForegroundColor DarkGray "Version $ASMazure is installed."
-    }
 }
-
-
-
-##################################### Add an option to install Az module updates if detected
-
 
 
 # Remove any old jobs
 Write-Host -ForegroundColor Cyan "Removing existing PowerShell jobs..."
 Get-Job | Remove-Job
-
 
 
 # Login to Azure
@@ -435,6 +426,7 @@ $rgList | ForEach-Object {
 }
 Write-Host -ForegroundColor DarkGray "Found $($jobList.Count) jobs. $($jobSkip) were skipped..."
 Write-Host -ForegroundColor DarkGray "Job progress: $($jobList.Count) / $($rgList.Count)"
+
 
 # Prompt for job status
 $jobPrompt = SafetyPrompt
