@@ -63,28 +63,26 @@ function SafetyPrompt {
 }
 
 
-function CheckJobs ($jobList) {
+function CheckJobs {
     $jobsRunning = 0
     $jobsComplete = 0
     $jobsFailed = 0
-    $jobList | ForEach-Object {
+    $jobsOther = 0
+
+    $global:jobList | ForEach-Object {
         $job = Get-Job -Id $_
-        if ($job.State -eq "Running") {
-            $jobsRunning++
-        }
-        if ($job.State -eq "Completed") {
-            $jobsComplete++
-        }
-        if ($job.State -eq "Failed") {
-            $jobsFailed++
+        switch ($job.State) {
+            "Running"   {$jobsRunning++}
+            "Completed" {$jobsComplete++}
+            "Failed"    {$jobsFailed++}
+            default     {$jobsOther++}
         }
     }
     if ($jobsRunning -gt 0) {
         Write-Host "$jobsRunning of $($jobList.Count) still running..."
         Start-Sleep 10
-        CheckJobs -jobList $jobList
+        CheckJobs
     } else {
-        $jobsOther = $jobList.Count - $jobsComplete - $jobsFailed
         Write-Host -ForegroundColor Green "All jobs have now finished!"
         Write-Host -ForegroundColor Yellow "`t$jobsComplete jobs are Complete `n`t$jobsFailed jobs are Failed"
         if ($jobsOther -gt 0) {
@@ -93,17 +91,6 @@ function CheckJobs ($jobList) {
         Write-Host -ForegroundColor Yellow "You can check the status of individual jobs with Get-Job."
     }
 }
-
-
-function LatestModVer ($mod, $curVer) {
-    $latest = (Find-Module -Name $mod).Version
-    if ($latest -gt $curVer){
-        Write-Host -ForegroundColor DarkGray "Update available ($latest)."
-    } else {
-        Write-Host -ForegroundColor DarkGray "Using the latest version."
-    }
-}
-
 
 
 # Warning prompt
@@ -121,57 +108,46 @@ if (-not $continueScript) {
 
 # Check for Az module
 Write-Host -ForegroundColor Cyan "Checking for the 'Az' module..."
-$az = (Get-InstalledModule -Name Az -ErrorAction SilentlyContinue).Version
-if (-not $az) {
-    Write-Host -ForegroundColor Red "You do not have the Az PowerShell module installed."
-    Write-Host -ForegroundColor DarkGray "Try installing the module with 'Install-Module -Name Az', then re-run this script."
-    exit
-}
+$az = Get-InstalledModule -Name Az -ErrorAction SilentlyContinue
 if ($az) {
-    Write-Host -ForegroundColor DarkGray "Version $az is installed."
-    LatestModVer -mod Az -curVer $az
+    Write-Host -ForegroundColor DarkGray "Version $($az.Version) is installed."
+    $latest = (Find-Module -Name Az).Version
+    if ($latest -gt $az.Version){
+        Write-Host -ForegroundColor DarkGray "Update available ($latest)."
+    }
+} else {
+    Write-Host -ForegroundColor Red "You do not have the Az PowerShell module installed."
+    Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Az', then re-run this script."
+    exit
 }
 
 
 # Check for the Azure (classic) module
 if (-not $skipClassic) {
     Write-Host -ForegroundColor Cyan "Checking for the 'Azure' (classic) module..."
-    $ASMazure = (Get-InstalledModule -Name Azure -ErrorAction SilentlyContinue).Version
-    if (-not $ASMazure) {
+    $asmAzure = (Get-InstalledModule -Name Azure -ErrorAction SilentlyContinue).Version
+    if ($asmAzure) {
+        Write-Host -ForegroundColor DarkGray "Version $asmAzure is installed."
+    } else {
         Write-Host -ForegroundColor Red "You elected to check classic resources but do not have the Azure (classic) PowerShell module installed."
         Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Azure', then re-run this script."
         exit
     }
-    if ($ASMazure) {
-        Write-Host -ForegroundColor DarkGray "Version $ASMazure is installed."
-    }
 }
-
-
-
-##################################### Add an option to install Az module updates if detected
-
-
-
-# Remove any old jobs
-Write-Host -ForegroundColor Cyan "Removing existing PowerShell jobs..."
-Get-Job | Remove-Job
-
 
 
 # Login to Azure
 Write-Host -ForegroundColor Cyan "Checking if connected to Azure..."
 $user = (Get-AzContext).Account.Id
-if (-not $user) {
-    Write-Host -ForegroundColor DarkGray "Not authenticated."
+if ($user) {
+    Write-Host -ForegroundColor DarkGray "Logged in with the user '$user'"
+} else {
     Write-Host -ForegroundColor Cyan "Prompting for authentication..."
     $login = Connect-AzAccount
     if (-not $login) {
         Write-Host -ForegroundColor Red "Authentication to Azure failed or was not completed."
         exit
     }
-} else {
-    Write-Host -ForegroundColor DarkGray "Logged in with the user '$user'"
 }
 
 
@@ -179,7 +155,9 @@ if (-not $user) {
 if (-not $skipClassic) {
     Write-Host -ForegroundColor Cyan "Checking if connected to Azure (classic)..."
     $classicUser = (Get-AzureAccount).Id
-    if (-not $classicUser) {
+    if ($classicUser) {
+        Write-Host -ForegroundColor DarkGray "Logged in with the user '$classicUser'"
+    } else {
         Write-Host -ForegroundColor DarkGray "Not authenticated to Azure (Classic)."
         Write-Host -ForegroundColor Cyan "Prompting for authentication..."
         $classicLogin = Add-AzureAccount
@@ -188,8 +166,6 @@ if (-not $skipClassic) {
             Write-Host -ForegroundColor Red "If you want to skip classic resources, set the '`$skipClassic' variable to '1'."
             exit
         }
-    } else {
-        Write-Host -ForegroundColor DarkGray "Logged in with the user '$classicUser'"
     }
 }
 
@@ -236,7 +212,7 @@ Write-Host -ForegroundColor DarkGray "Found $($lockedRGs.Count) resource group(s
 # Recovery vaults
 $rsVaults = Get-AzRecoveryServicesVault
 if ($rsVaults.Count -gt 0) {
-    Write-Host -ForegroundColor Cyan "$($rsVaults.Count) Recovery Service Vaults were detected."
+    Write-Host -ForegroundColor Cyan "$($rsVaults.Count) Recovery Service Vaults were identified."
     Write-Host -ForegroundColor Yellow "NOTICE: Removal of Recovery Service Vaults is a lengthy process. Please be patient..."
     # Begin removals
     $rsVaults | ForEach-Object {
@@ -252,19 +228,14 @@ if ($rsVaults.Count -gt 0) {
             # Disable Soft Delete
             Write-Host -ForegroundColor DarkGray "Disabling soft delete..."
             Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable > $null
-            
 
-            # Fetch backup items in soft delete state
+            # Undelete items in soft delete state
             $softDeletedItems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object { $_.DeleteState -eq "ToBeDeleted" }
-            $softDeletedItems | ForEach-Object {
-                # Undelete items in soft delete state
-                Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force > $null
-            }
+            $softDeletedItems | ForEach-Object { Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force > $null }
 
             # Disable security features (Enhanced Security) to remove MARS/MAB/DPM servers
-            Write-Host -ForegroundColor DarkGray "Disabling Security features for the vault..."
+            Write-Host -ForegroundColor DarkGray "Disabling Enhance Security for the vault..."
             Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true > $null
-
 
             ### Stop backup and delete backup items
             # Azure VM
@@ -321,7 +292,7 @@ if ($rsVaults.Count -gt 0) {
             Write-Host -ForegroundColor DarkGray "Deleting DPM Servers..."
             $backupServersDPM = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType -eq "SCDPM" }
             $backupServersDPM | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null }
-            
+
             # Remove private endpoints
             Write-Host -ForegroundColor DarkGray "Removing private endpoints..."
             $pvtendpoints = Get-AzPrivateEndpointConnection -PrivateLinkResourceId $vault.ID
@@ -347,7 +318,6 @@ if ($rsVaults.Count -gt 0) {
                     $protectedItems | ForEach-Object {
                         Write-Host -ForegroundColor DarkGray "Triggering DisableDR(Purge) for item:" $_.Name
                         Remove-AzRecoveryServicesAsrReplicationProtectedItem -InputObject $_ -Force > $null
-                        #Write-Host -ForegroundColor DarkGray "DisableDR(Purge) completed"
                     }
 
                     # Remove all Container Mappings
@@ -355,7 +325,6 @@ if ($rsVaults.Count -gt 0) {
                     $containerMappings | ForEach-Object {
                         Write-Host -ForegroundColor DarkGray "Triggering Remove Container Mapping: " $_.Name
                         Remove-AzRecoveryServicesAsrProtectionContainerMapping -InputObject $_ -Force > $null
-                        #Write-Host -ForegroundColor DarkGray "Removed Container Mapping."
                     }
                 }
                 $netObjects = Get-AzRecoveryServicesAsrNetwork -Fabric $fabricObject
@@ -397,50 +366,51 @@ if (-not $skipClassic) {
     # Storage accounts (classic) pending migration
     Write-Host -ForegroundColor DarkGray "Aborting storage (classic) migrations..."
     $storagePending = Get-AzureStorageAccount | Where-Object { $_.MigrationState -ne $null }
-    $storagePending | ForEach-Object {
-        Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort > $null
-    }
+    $storagePending | ForEach-Object { Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort > $null }
         
     # VM Images (classic)
     Write-Host -ForegroundColor DarkGray "Deleting VM Images (classic)..."
     $classicImages = Get-AzureVMImage | Where-Object { $_.PublisherName -eq $null }
-    $classicImages | ForEach-Object{
-        Remove-AzureVMImage -ImageName $_.ImageName -DeleteVHD > $null
-    }
+    $classicImages | ForEach-Object{ Remove-AzureVMImage -ImageName $_.ImageName -DeleteVHD > $null }
 
     # Disks (classic)
     Write-Host -ForegroundColor DarkGray "Deleting disks (classic)..."
     $classicDisks = Get-AzureDisk
-    $classicDisks | ForEach-Object {
-        Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD > $null
-    }
+    $classicDisks | ForEach-Object { Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD > $null }
 }
 
 
 # Remove Resource Groups
 Write-Host -ForegroundColor Cyan "Beginning to remove resource groups..."
+Get-Job | Remove-Job > $null
 $jobCnt = 0
 $jobSkip = 0
 $jobList = @()
 $rgList | ForEach-Object {
-    if (($_.ProvisioningState -eq "Succeeded") -and ($lockedRGs -notcontains $_.ResourceGroupName)) {
-        $jobList += $jobCnt
-        Write-Host -ForegroundColor Cyan "Job $jobCnt - Removing resource group '$($_.ResourceGroupName)'..."
-        #Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob > $null
-        $jobCnt++
+    if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
+        $delRG = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
+        if ($delRG) {
+            Write-Host "Started job (ID $($delRG.Id)) to remove resource group '$($_.ResourceGroupName)'."
+            $jobList += $delRG.ID
+            $jobCnt++
+        } else {
+            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'"
+        }
     } else {
+        Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
-        Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'..."
     }
 }
-Write-Host -ForegroundColor DarkGray "Found $($jobList.Count) jobs. $($jobSkip) were skipped..."
-Write-Host -ForegroundColor DarkGray "Job progress: $($jobList.Count) / $($rgList.Count)"
+Write-Host -ForegroundColor Green "Started $jobCnt job(s) to remove resource groups. (Skipped $jobSkip resource group(s))"
+Write-Host -ForegroundColor DarkGray "The script will continue to monitor the progress of each job. `nIf you prefer, you can cancel the monitoring with Ctrl+C and use Get-Job to monitor the progress for yourself."
 
-# Prompt for job status
-$jobPrompt = SafetyPrompt
-if ($jobPrompt) {
-    CheckJobs -jobList $jobList
-} else {
-    Write-Host -ForegroundColor Cyan "Resource group removal jobs were not confirmed. Script execution will stop."
-    exit
+
+# Looping CheckJobs function
+CheckJobs
+
+
+# Remaining resource groups
+$rglist = Get-AzResourceGroup
+if($rglist -gt 0){
+    Write-Host -ForegroundColor DarkGray "You have $($rglist.Count) resource group(s) remaining."
 }
