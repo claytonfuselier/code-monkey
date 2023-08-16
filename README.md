@@ -1,8 +1,8 @@
 # Code Monkey
-A collection of scripts I've written over time and have modified to share.
+A collection of scripts I've written.
 
 - [**/azure**](https://github.com/claytonfuselier/code-monkey/tree/main/azure) - For Microsoft Azure resources.
-- [**/devops**](https://github.com/claytonfuselier/code-monkey/tree/main/devops) - For Azure DevOps wiki articles (formerly known as my "KM-Scripts" project).
+- [**/devops**](https://github.com/claytonfuselier/code-monkey/tree/main/devops) - For Azure DevOps Wiki. (Formerly known as my "KM-Scripts" repo).
 
 <br>
 
