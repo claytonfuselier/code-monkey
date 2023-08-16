@@ -231,68 +231,67 @@ if ($rsVaults.Count -gt 0) {
 
             # Undelete items in soft delete state
             $softDeletedItems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object { $_.DeleteState -eq "ToBeDeleted" }
-            $softDeletedItems | ForEach-Object { Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force -AsJob > $null }
+            $softDeletedItems | ForEach-Object { Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force > $null }
 
             # Disable security features (Enhanced Security) to remove MARS/MAB/DPM servers
             Write-Host -ForegroundColor DarkGray "Disabling Enhance Security for the vault..."
             Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true > $null
 
-
             ### Stop backup and delete backup items
             # Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure VM backup items..."
             $backupItemsVM = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID
-            $backupItemsVM | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
+            $backupItemsVM | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
 
             # SQL Server in Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting SQL Server backup items..."
             $backupItemsSQL = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType MSSQL -VaultId $vault.ID
-            $backupItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
+            $backupItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
             
             # Disable auto-protection for SQL
             Write-Host -ForegroundColor DarkGray "Disabling auto-protection and deleting SQL protectable items..."
             $protectableItemsSQL = Get-AzRecoveryServicesBackupProtectableItem -WorkloadType MSSQL -VaultId $vault.ID | Where-Object { $_.IsAutoProtected -eq $true }
-            $protectableItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $_ -VaultId $vault.ID -AsJob > $null }
+            $protectableItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $_ -VaultId $vault.ID > $null }
 
             # Unregister SQL Server in Azure VM
             Write-Host -ForegroundColor DarkGray "Deleting SQL Servers in Azure VM containers..."
             $backupContainersSQL = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object { $_.ExtendedInfo.WorkloadType -eq "SQL" }
-            $backupContainersSQL | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
+            $backupContainersSQL | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
 
             # SAP HANA in Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting SAP HANA backup items..."
             $backupItemsSAP = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType SAPHanaDatabase -VaultId $vault.ID
-            $backupItemsSAP | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
+            $backupItemsSAP | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
 
             # Unregister SAP HANA in Azure VM
             Write-Host -ForegroundColor DarkGray "Deleting SAP HANA in Azure VM containers..."
             $backupContainersSAP = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object { $_.ExtendedInfo.WorkloadType -eq "SAPHana" }
-            $backupContainersSAP | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
+            $backupContainersSAP | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
 
             # Azure File Shares
             Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure File Share backups..."
             $backupItemsAFS = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureStorage -WorkloadType AzureFiles -VaultId $vault.ID
-            $backupItemsAFS | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
+            $backupItemsAFS | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
 
             # Unregister storage accounts
             Write-Host -ForegroundColor DarkGray "Unregistering Storage Accounts..."
             $StorageAccounts = Get-AzRecoveryServicesBackupContainer -ContainerType AzureStorage -VaultId $vault.ID
-            $StorageAccounts | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
+            $StorageAccounts | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
 
             # Unregister MARS servers
             Write-Host -ForegroundColor DarkGray "Deleting MARS Servers..."
             $backupServersMARS = Get-AzRecoveryServicesBackupContainer -ContainerType "Windows" -BackupManagementType MAB -VaultId $vault.ID
-            $backupServersMARS | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
+            $backupServersMARS | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
 
             # Unregister MABS servers
             Write-Host -ForegroundColor DarkGray "Deleting MAB Servers..."
             $backupServersMABS = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType -eq "AzureBackupServer" }
-            $backupServersMABS | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID -AsJob > $null }
+            $backupServersMABS | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null }
 
             # Unregister DPM servers
             Write-Host -ForegroundColor DarkGray "Deleting DPM Servers..."
             $backupServersDPM = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType -eq "SCDPM" }
-            $backupServersDPM | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID -AsJob > $null }
+            $backupServersDPM | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null }
 
             # Remove private endpoints
             Write-Host -ForegroundColor DarkGray "Removing private endpoints..."
@@ -367,7 +366,7 @@ if (-not $skipClassic) {
     # Storage accounts (classic) pending migration
     Write-Host -ForegroundColor DarkGray "Aborting storage (classic) migrations..."
     $storagePending = Get-AzureStorageAccount | Where-Object { $_.MigrationState -ne $null }
-    $storagePending | ForEach-Object { Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort -AsJob > $null }
+    $storagePending | ForEach-Object { Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort > $null }
         
     # VM Images (classic)
     Write-Host -ForegroundColor DarkGray "Deleting VM Images (classic)..."
