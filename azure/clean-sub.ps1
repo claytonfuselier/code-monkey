@@ -63,6 +63,30 @@ function SafetyPrompt {
 }
 
 
+function ResetJobs {
+    Get-Job | Remove-Job
+    global:jobCnt = 0
+    global:jobSkip = 0
+    global:jobList = @()
+}
+
+function StartJob ($newJob,$type,$rgName) {
+    switch ($type) {
+        rg {
+            $success = "Started job (ID $($newJob.Id)) to remove resource group '$rgName'."
+            $failure = "Failed to start job to remove resource group '$rgName'."
+        }
+    }
+
+    if ($newJob) {
+            Write-Host -ForegroundColor Yellow "$success"
+            global:jobList += $newJob.ID
+            global:jobCnt++
+        } else {
+            Write-Host -ForegroundColor Red "$failure"
+        }
+}
+
 function CheckJobs ($jobList) {
     $jobsRunning = 0
     $jobsComplete = 0
@@ -143,11 +167,6 @@ if (-not $skipClassic) {
         exit
     }
 }
-
-
-# Remove any old jobs
-Write-Host -ForegroundColor Cyan "Removing existing PowerShell jobs..."
-Get-Job | Remove-Job
 
 
 # Login to Azure
@@ -410,19 +429,18 @@ if (-not $skipClassic) {
 
 # Remove Resource Groups
 Write-Host -ForegroundColor Cyan "Beginning to remove resource groups..."
-$jobCnt = 0
-$jobSkip = 0
-$jobList = @()
+ResetJobs
 $rgList | ForEach-Object {
     if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
         $delRg = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
-        if ($delRg) {
-            Write-Host -ForegroundColor Yellow "Started job (ID $($delRg.Id)) to remove resource group '$($_.ResourceGroupName)'."
-            $jobList += $delRg.ID
-            $jobCnt++
-        } else {
-            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'."
-        }
+        AddJob ($delRG,"rg",$_.ResourceGroupName)
+#        if ($delRg) {
+#            Write-Host -ForegroundColor Yellow "Started job (ID $($delRg.Id)) to remove resource group '$($_.ResourceGroupName)'."
+#            $jobList += $delRg.ID
+#            $jobCnt++
+#        } else {
+#            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'."
+#        }
     } else {
         Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
