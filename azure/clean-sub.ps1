@@ -382,7 +382,7 @@ if (-not $skipClassic) {
 
 # Remove Resource Groups
 Write-Host -ForegroundColor Cyan "Beginning to remove resource groups..."
-Get-Job | Remove-Job
+Get-Job | Remove-Job > $null
 $jobCnt = 0
 $jobSkip = 0
 $jobList = @()
