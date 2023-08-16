@@ -83,8 +83,8 @@ function CheckJobs {
         Start-Sleep 10
         CheckJobs
     } else {
-        Write-Host -ForegroundColor Green "All jobs have now finished!"
-        Write-Host -ForegroundColor Yellow "`t$jobsComplete jobs are Complete `n`t$jobsFailed jobs are Failed"
+        Write-Host -ForegroundColor Green "All removal jobs have now finished!"
+        Write-Host -ForegroundColor Yellow "`t$jobsComplete groups were removed `n`t$jobsFailed groups failed `n`t$global:jobSkip groups were skipped."
         if ($jobsOther -gt 0) {
             Write-Host -ForegroundColor Yellow "`n`t$jobsOther jobs have other statuses."
         }
@@ -94,9 +94,9 @@ function CheckJobs {
 
 
 # Warning prompt
-Write-Host -ForegroundColor Red "WARNING - This script will attempt to DELETE ALL RESOURCES in subscription '$subID'! This cannot be undone!"
-Write-Host -ForegroundColor DarkGray `
-    "Note:
+Write-Host -ForegroundColor Red -BackgroundColor Black "WARNING - This script will attempt to DELETE ALL RESOURCES in subscription '$subID'! This cannot be undone!"
+Write-Host -ForegroundColor Yellow `
+    "NOTICE:
     Delete jobs may fail if you have cross-dependent resources spread across different resource groups.
     If jobs fail, you can try re-running this script after all jobs have completed. Each run *should* remove a layer of dependency."
 $continueScript = SafetyPrompt
@@ -411,6 +411,6 @@ CheckJobs
 
 # Remaining resource groups
 $rglist = Get-AzResourceGroup
-if($rglist -gt 0){
-    Write-Host -ForegroundColor DarkGray "You have $($rglist.Count) resource group(s) remaining."
+if($rglist.Count -gt 0){
+    Write-Host -ForegroundColor DarkGray "Note: $($rglist.Count) resource group(s) still exist."
 }
