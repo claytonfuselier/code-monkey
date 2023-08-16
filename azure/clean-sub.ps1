@@ -63,37 +63,12 @@ function SafetyPrompt {
 }
 
 
-function ResetJobs {
-    Get-Job | Remove-Job
-    $global:jobList = @()
-    $global:jobCnt = 0
-    $global:jobSkip = 0
-}
-
-
-function AddJob ($newJob,$msgType,$rgName) {
-    switch ($msgType) {
-        rg {
-            $success = "Started job (ID $($newJob.Id)) to remove resource group '$rgName'."
-            $failure = "Failed to start job to remove resource group '$rgName'."
-        }
-    }
-
-    if ($newJob) {
-        Write-Host "$success"
-        $global:jobList += $newJob.ID
-        $global:jobCnt++
-    } else {
-        Write-Host -ForegroundColor Red "$failure"
-    }
-}
-
-
 function CheckJobs {
     $jobsRunning = 0
     $jobsComplete = 0
     $jobsFailed = 0
     $jobsOther = 0
+
     $global:jobList | ForEach-Object {
         $job = Get-Job -Id $_
         switch ($job.State) {
@@ -105,7 +80,7 @@ function CheckJobs {
     }
     if ($jobsRunning -gt 0) {
         Write-Host "$jobsRunning of $($jobList.Count) still running..."
-        Start-Sleep 15
+        Start-Sleep 10
         CheckJobs
     } else {
         Write-Host -ForegroundColor Green "All jobs have now finished!"
@@ -114,16 +89,6 @@ function CheckJobs {
             Write-Host -ForegroundColor Yellow "`n`t$jobsOther jobs have other statuses."
         }
         Write-Host -ForegroundColor Yellow "You can check the status of individual jobs with Get-Job."
-    }
-}
-
-
-function LatestModVer ($mod, $curVer) {
-    $latest = (Find-Module -Name $mod).Version
-    if ($latest -gt $curVer){
-        Write-Host -ForegroundColor DarkGray "Update available ($latest)."
-    } else {
-        Write-Host -ForegroundColor DarkGray "Using the latest version."
     }
 }
 
@@ -143,10 +108,13 @@ if (-not $continueScript) {
 
 # Check for Az module
 Write-Host -ForegroundColor Cyan "Checking for the 'Az' module..."
-$az = (Get-InstalledModule -Name Az -ErrorAction SilentlyContinue).Version
+$az = Get-InstalledModule -Name Az -ErrorAction SilentlyContinue
 if ($az) {
-    Write-Host -ForegroundColor DarkGray "Version $az is installed."
-    LatestModVer -mod Az -curVer $az
+    Write-Host -ForegroundColor DarkGray "Version $($az.Version) is installed."
+    $latest = (Find-Module -Name Az).Version
+    if ($latest -gt $az.Version){
+        Write-Host -ForegroundColor DarkGray "Update available ($latest)."
+    }
 } else {
     Write-Host -ForegroundColor Red "You do not have the Az PowerShell module installed."
     Write-Host -ForegroundColor Yellow "Try installing the module with 'Install-Module -Name Az', then re-run this script."
@@ -171,16 +139,15 @@ if (-not $skipClassic) {
 # Login to Azure
 Write-Host -ForegroundColor Cyan "Checking if connected to Azure..."
 $user = (Get-AzContext).Account.Id
-if (-not $user) {
-    Write-Host -ForegroundColor DarkGray "Not authenticated."
+if ($user) {
+    Write-Host -ForegroundColor DarkGray "Logged in with the user '$user'"
+} else {
     Write-Host -ForegroundColor Cyan "Prompting for authentication..."
     $login = Connect-AzAccount
     if (-not $login) {
         Write-Host -ForegroundColor Red "Authentication to Azure failed or was not completed."
         exit
     }
-} else {
-    Write-Host -ForegroundColor DarkGray "Logged in with the user '$user'"
 }
 
 
@@ -188,7 +155,9 @@ if (-not $user) {
 if (-not $skipClassic) {
     Write-Host -ForegroundColor Cyan "Checking if connected to Azure (classic)..."
     $classicUser = (Get-AzureAccount).Id
-    if (-not $classicUser) {
+    if ($classicUser) {
+        Write-Host -ForegroundColor DarkGray "Logged in with the user '$classicUser'"
+    } else {
         Write-Host -ForegroundColor DarkGray "Not authenticated to Azure (Classic)."
         Write-Host -ForegroundColor Cyan "Prompting for authentication..."
         $classicLogin = Add-AzureAccount
@@ -197,8 +166,6 @@ if (-not $skipClassic) {
             Write-Host -ForegroundColor Red "If you want to skip classic resources, set the '`$skipClassic' variable to '1'."
             exit
         }
-    } else {
-        Write-Host -ForegroundColor DarkGray "Logged in with the user '$classicUser'"
     }
 }
 
@@ -261,14 +228,10 @@ if ($rsVaults.Count -gt 0) {
             # Disable Soft Delete
             Write-Host -ForegroundColor DarkGray "Disabling soft delete..."
             Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable > $null
-            
 
             # Undelete items in soft delete state
             $softDeletedItems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object { $_.DeleteState -eq "ToBeDeleted" }
-            $softDeletedItems | ForEach-Object {
-                # Undelete items in soft delete state
-                Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force > $null
-            }
+            $softDeletedItems | ForEach-Object { Undo-AzRecoveryServicesBackupItemDeletion -Item $_ -VaultId $vault.ID -Force -AsJob > $null }
 
             # Disable security features (Enhanced Security) to remove MARS/MAB/DPM servers
             Write-Host -ForegroundColor DarkGray "Disabling Enhance Security for the vault..."
@@ -279,62 +242,58 @@ if ($rsVaults.Count -gt 0) {
             # Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure VM backup items..."
             $backupItemsVM = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID
-            $backupItemsVM | ForEach-Object {
-                $job = Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null
-                AddJob -newJob $job -msgType "rg"
-                CheckJobs
-            }
+            $backupItemsVM | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
 
             # SQL Server in Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting SQL Server backup items..."
             $backupItemsSQL = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType MSSQL -VaultId $vault.ID
-            $backupItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
+            $backupItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
             
             # Disable auto-protection for SQL
             Write-Host -ForegroundColor DarkGray "Disabling auto-protection and deleting SQL protectable items..."
             $protectableItemsSQL = Get-AzRecoveryServicesBackupProtectableItem -WorkloadType MSSQL -VaultId $vault.ID | Where-Object { $_.IsAutoProtected -eq $true }
-            $protectableItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $_ -VaultId $vault.ID > $null }
+            $protectableItemsSQL | ForEach-Object { Disable-AzRecoveryServicesBackupAutoProtection -BackupManagementType AzureWorkload -WorkloadType MSSQL -InputItem $_ -VaultId $vault.ID -AsJob > $null }
 
             # Unregister SQL Server in Azure VM
             Write-Host -ForegroundColor DarkGray "Deleting SQL Servers in Azure VM containers..."
             $backupContainersSQL = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object { $_.ExtendedInfo.WorkloadType -eq "SQL" }
-            $backupContainersSQL | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
+            $backupContainersSQL | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
 
             # SAP HANA in Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting SAP HANA backup items..."
             $backupItemsSAP = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureWorkload -WorkloadType SAPHanaDatabase -VaultId $vault.ID
-            $backupItemsSAP | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
+            $backupItemsSAP | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
 
             # Unregister SAP HANA in Azure VM
             Write-Host -ForegroundColor DarkGray "Deleting SAP HANA in Azure VM containers..."
             $backupContainersSAP = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $vault.ID | Where-Object { $_.ExtendedInfo.WorkloadType -eq "SAPHana" }
-            $backupContainersSAP | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
+            $backupContainersSAP | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
 
             # Azure File Shares
             Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure File Share backups..."
             $backupItemsAFS = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureStorage -WorkloadType AzureFiles -VaultId $vault.ID
-            $backupItemsAFS | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
+            $backupItemsAFS | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null }
 
             # Unregister storage accounts
             Write-Host -ForegroundColor DarkGray "Unregistering Storage Accounts..."
             $StorageAccounts = Get-AzRecoveryServicesBackupContainer -ContainerType AzureStorage -VaultId $vault.ID
-            $StorageAccounts | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
+            $StorageAccounts | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
 
             # Unregister MARS servers
             Write-Host -ForegroundColor DarkGray "Deleting MARS Servers..."
             $backupServersMARS = Get-AzRecoveryServicesBackupContainer -ContainerType "Windows" -BackupManagementType MAB -VaultId $vault.ID
-            $backupServersMARS | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID > $null }
+            $backupServersMARS | ForEach-Object { Unregister-AzRecoveryServicesBackupContainer -Container $_ -Force -VaultId $vault.ID -AsJob > $null }
 
             # Unregister MABS servers
             Write-Host -ForegroundColor DarkGray "Deleting MAB Servers..."
             $backupServersMABS = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType -eq "AzureBackupServer" }
-            $backupServersMABS | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null }
+            $backupServersMABS | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID -AsJob > $null }
 
             # Unregister DPM servers
             Write-Host -ForegroundColor DarkGray "Deleting DPM Servers..."
             $backupServersDPM = Get-AzRecoveryServicesBackupManagementServer -VaultId $vault.ID | Where-Object { $_.BackupManagementType -eq "SCDPM" }
-            $backupServersDPM | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID > $null }
-            
+            $backupServersDPM | ForEach-Object { Unregister-AzRecoveryServicesBackupManagementServer -AzureRmBackupManagementServer $_ -VaultId $vault.ID -AsJob > $null }
+
             # Remove private endpoints
             Write-Host -ForegroundColor DarkGray "Removing private endpoints..."
             $pvtendpoints = Get-AzPrivateEndpointConnection -PrivateLinkResourceId $vault.ID
@@ -360,7 +319,6 @@ if ($rsVaults.Count -gt 0) {
                     $protectedItems | ForEach-Object {
                         Write-Host -ForegroundColor DarkGray "Triggering DisableDR(Purge) for item:" $_.Name
                         Remove-AzRecoveryServicesAsrReplicationProtectedItem -InputObject $_ -Force > $null
-                        #Write-Host -ForegroundColor DarkGray "DisableDR(Purge) completed"
                     }
 
                     # Remove all Container Mappings
@@ -368,7 +326,6 @@ if ($rsVaults.Count -gt 0) {
                     $containerMappings | ForEach-Object {
                         Write-Host -ForegroundColor DarkGray "Triggering Remove Container Mapping: " $_.Name
                         Remove-AzRecoveryServicesAsrProtectionContainerMapping -InputObject $_ -Force > $null
-                        #Write-Host -ForegroundColor DarkGray "Removed Container Mapping."
                     }
                 }
                 $netObjects = Get-AzRecoveryServicesAsrNetwork -Fabric $fabricObject
@@ -405,39 +362,41 @@ if ($rsVaults.Count -gt 0) {
 }
 
 
-
 # Classic Resources
 if (-not $skipClassic) {
     # Storage accounts (classic) pending migration
     Write-Host -ForegroundColor DarkGray "Aborting storage (classic) migrations..."
     $storagePending = Get-AzureStorageAccount | Where-Object { $_.MigrationState -ne $null }
-    $storagePending | ForEach-Object {
-        Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort > $null
-    }
+    $storagePending | ForEach-Object { Move-AzureStorageAccount -StorageAccountName $_.StorageAccountName -Abort -AsJob > $null }
         
     # VM Images (classic)
     Write-Host -ForegroundColor DarkGray "Deleting VM Images (classic)..."
     $classicImages = Get-AzureVMImage | Where-Object { $_.PublisherName -eq $null }
-    $classicImages | ForEach-Object{
-        Remove-AzureVMImage -ImageName $_.ImageName -DeleteVHD > $null
-    }
+    $classicImages | ForEach-Object{ Remove-AzureVMImage -ImageName $_.ImageName -DeleteVHD > $null }
 
     # Disks (classic)
     Write-Host -ForegroundColor DarkGray "Deleting disks (classic)..."
     $classicDisks = Get-AzureDisk
-    $classicDisks | ForEach-Object {
-        Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD > $null
-    }
+    $classicDisks | ForEach-Object { Remove-AzureDisk -DiskName $_.DiskName -DeleteVHD > $null }
 }
 
 
 # Remove Resource Groups
 Write-Host -ForegroundColor Cyan "Beginning to remove resource groups..."
-ResetJobs
+Get-Job | Remove-Job
+$jobCnt = 0
+$jobSkip = 0
+$jobList = @()
 $rgList | ForEach-Object {
     if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
-        $delRg = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
-        AddJob -newJob $delRG -msgType "rg" -rgName $_.ResourceGroupName
+        $delRG = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
+        if ($delRG) {
+            Write-Host "Started job (ID $($delRG.Id)) to remove resource group '$($_.ResourceGroupName)'."
+            $jobList += $delRG.ID
+            $jobCnt++
+        } else {
+            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'"
+        }
     } else {
         Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
