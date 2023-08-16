@@ -6,7 +6,7 @@ A collection of scripts I've written.
 
 <br>
 
-# Disclaimer
+## Disclaimer
 
 All content of this repository is provided "as-is" and without warranty. Your use of these scripts comes at your own risk and expense. The author(s) accept no responsibility or liability for any consequences that may arise from your use of this content. It is your responsibility to take appropriate actions to safeguard your system(s) before following any instructions or executing any code provided on the internet.
 
