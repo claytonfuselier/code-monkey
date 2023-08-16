@@ -65,12 +65,13 @@ function SafetyPrompt {
 
 function ResetJobs {
     Get-Job | Remove-Job
-    global:jobCnt = 0
-    global:jobSkip = 0
-    global:jobList = @()
+    $global:jobCnt = 0
+    $global:jobSkip = 0
+    $global:jobList = @()
 }
 
-function StartJob ($newJob,$type,$rgName) {
+
+function AddJob ($newJob,$type,$rgName) {
     switch ($type) {
         rg {
             $success = "Started job (ID $($newJob.Id)) to remove resource group '$rgName'."
@@ -79,13 +80,14 @@ function StartJob ($newJob,$type,$rgName) {
     }
 
     if ($newJob) {
-            Write-Host -ForegroundColor Yellow "$success"
-            global:jobList += $newJob.ID
-            global:jobCnt++
-        } else {
-            Write-Host -ForegroundColor Red "$failure"
-        }
+        Write-Host "$success"
+        $global:jobList += $newJob.ID
+        $global:jobCnt++
+    } else {
+        Write-Host -ForegroundColor Red "$failure"
+    }
 }
+
 
 function CheckJobs ($jobList) {
     $jobsRunning = 0
@@ -433,14 +435,7 @@ ResetJobs
 $rgList | ForEach-Object {
     if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
         $delRg = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
-        AddJob ($delRG,"rg",$_.ResourceGroupName)
-#        if ($delRg) {
-#            Write-Host -ForegroundColor Yellow "Started job (ID $($delRg.Id)) to remove resource group '$($_.ResourceGroupName)'."
-#            $jobList += $delRg.ID
-#            $jobCnt++
-#        } else {
-#            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'."
-#        }
+        AddJob -newJob $delRG -type "rg" -rgName $_.ResourceGroupName
     } else {
         Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
