@@ -105,8 +105,8 @@ function CheckJobs {
     }
     if ($jobsRunning -gt 0) {
         Write-Host "$jobsRunning of $($jobList.Count) still running..."
-        Start-Sleep 10
-        CheckJobs -jobList $jobList
+        Start-Sleep 15
+        CheckJobs
     } else {
         Write-Host -ForegroundColor Green "All jobs have now finished!"
         Write-Host -ForegroundColor Yellow "`t$jobsComplete jobs are Complete `n`t$jobsFailed jobs are Failed"
@@ -403,6 +403,7 @@ if ($rsVaults.Count -gt 0) {
         }
     }
 }
+
 
 
 # Classic Resources
