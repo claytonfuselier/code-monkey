@@ -414,25 +414,30 @@ $jobCnt = 0
 $jobSkip = 0
 $jobList = @()
 $rgList | ForEach-Object {
-    if (($_.ProvisioningState -eq "Succeeded") -and ($lockedRGs -notcontains $_.ResourceGroupName)) {
-        $jobList += $jobCnt
-        Write-Host -ForegroundColor Cyan "Job $jobCnt - Removing resource group '$($_.ResourceGroupName)'..."
-        #Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob > $null
-        $jobCnt++
+    if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
+        $delRg = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
+        if ($delRg) {
+            Write-Host -ForegroundColor Yellow "Started job (ID $($delRg.Id)) to remove resource group '$($_.ResourceGroupName)'."
+            $jobList += $delRg.ID
+            $jobCnt++
+        } else {
+            Write-Host -ForegroundColor Red "Failed to start job to remove resource group '$($_.ResourceGroupName)'."
+        }
     } else {
+        Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
-        Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'..."
     }
 }
-Write-Host -ForegroundColor DarkGray "Found $($jobList.Count) jobs. $($jobSkip) were skipped..."
-Write-Host -ForegroundColor DarkGray "Job progress: $($jobList.Count) / $($rgList.Count)"
+Write-Host -ForegroundColor Green "Started $jobCnt job(s) to remove resource groups. (Skipped $jobSkip resource group(s))"
+Write-Host -ForegroundColor DarkGray "The script will continue to monitor the progress of each job. `nIf you prefer, you can cancel the monitoring with Ctrl+C and use Get-Job to monitor the progress for yourself."
 
 
-# Prompt for job status
-$jobPrompt = SafetyPrompt
-if ($jobPrompt) {
-    CheckJobs -jobList $jobList
-} else {
-    Write-Host -ForegroundColor Cyan "Resource group removal jobs were not confirmed. Script execution will stop."
-    exit
+# Looping CheckJobs function
+CheckJobs -jobList $jobList
+
+
+# Remaining resource groups
+$rglist = Get-AzResourceGroup
+if($rglist -gt 0){
+    Write-Host -ForegroundColor DarkGray "You have $($rglist.Count) resource group(s) remaining."
 }
