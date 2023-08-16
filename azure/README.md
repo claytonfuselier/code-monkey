@@ -1,12 +1,14 @@
 # Azure Scripts
-Some scripts I've written to either help others or to manage my own Azure subscription/resources.
+Manage Azure subscriptions/resources.
 
 <br>
 
-## Install
+## Setup
 These scripts require the use of the Azure Powershell module (Az).
 
-To install the module and more, see the [Azure Powershell README](https://github.com/Azure/azure-powershell/blob/master/README.md). Alternatively, you can use Azure CloudShell which has the Azure PowerShell module already installed. For more information [see this guide](https://docs.microsoft.com/en-us/azure/cloud-shell/overview).
+To install the module, run `Install-Module -Name Az -Scope CurrentUser -Repository PSGallery`.
+
+For detailed installation steps and system requirements, see the [Azure Powershell README](https://github.com/Azure/azure-powershell/blob/master/README.md).
 
 <br>
 
