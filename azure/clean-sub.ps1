@@ -65,14 +65,14 @@ function SafetyPrompt {
 
 function ResetJobs {
     Get-Job | Remove-Job
+    $global:jobList = @()
     $global:jobCnt = 0
     $global:jobSkip = 0
-    $global:jobList = @()
 }
 
 
-function AddJob ($newJob,$type,$rgName) {
-    switch ($type) {
+function AddJob ($newJob,$msgType,$rgName) {
+    switch ($msgType) {
         rg {
             $success = "Started job (ID $($newJob.Id)) to remove resource group '$rgName'."
             $failure = "Failed to start job to remove resource group '$rgName'."
@@ -89,20 +89,18 @@ function AddJob ($newJob,$type,$rgName) {
 }
 
 
-function CheckJobs ($jobList) {
+function CheckJobs {
     $jobsRunning = 0
     $jobsComplete = 0
     $jobsFailed = 0
-    $jobList | ForEach-Object {
+    $jobsOther = 0
+    $global:jobList | ForEach-Object {
         $job = Get-Job -Id $_
-        if ($job.State -eq "Running") {
-            $jobsRunning++
-        }
-        if ($job.State -eq "Completed") {
-            $jobsComplete++
-        }
-        if ($job.State -eq "Failed") {
-            $jobsFailed++
+        switch ($job.State) {
+            "Running"   {$jobsRunning++}
+            "Completed" {$jobsComplete++}
+            "Failed"    {$jobsFailed++}
+            default     {$jobsOther++}
         }
     }
     if ($jobsRunning -gt 0) {
@@ -110,7 +108,6 @@ function CheckJobs ($jobList) {
         Start-Sleep 10
         CheckJobs -jobList $jobList
     } else {
-        $jobsOther = $jobList.Count - $jobsComplete - $jobsFailed
         Write-Host -ForegroundColor Green "All jobs have now finished!"
         Write-Host -ForegroundColor Yellow "`t$jobsComplete jobs are Complete `n`t$jobsFailed jobs are Failed"
         if ($jobsOther -gt 0) {
@@ -248,7 +245,7 @@ Write-Host -ForegroundColor DarkGray "Found $($lockedRGs.Count) resource group(s
 # Recovery vaults
 $rsVaults = Get-AzRecoveryServicesVault
 if ($rsVaults.Count -gt 0) {
-    Write-Host -ForegroundColor Cyan "$($rsVaults.Count) Recovery Service Vaults were detected."
+    Write-Host -ForegroundColor Cyan "$($rsVaults.Count) Recovery Service Vaults were identified."
     Write-Host -ForegroundColor Yellow "NOTICE: Removal of Recovery Service Vaults is a lengthy process. Please be patient..."
     # Begin removals
     $rsVaults | ForEach-Object {
@@ -266,7 +263,7 @@ if ($rsVaults.Count -gt 0) {
             Set-AzRecoveryServicesVaultProperty -Vault $vault.ID -SoftDeleteFeatureState Disable > $null
             
 
-            # Fetch backup items in soft delete state
+            # Undelete items in soft delete state
             $softDeletedItems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID | Where-Object { $_.DeleteState -eq "ToBeDeleted" }
             $softDeletedItems | ForEach-Object {
                 # Undelete items in soft delete state
@@ -274,7 +271,7 @@ if ($rsVaults.Count -gt 0) {
             }
 
             # Disable security features (Enhanced Security) to remove MARS/MAB/DPM servers
-            Write-Host -ForegroundColor DarkGray "Disabling Security features for the vault..."
+            Write-Host -ForegroundColor DarkGray "Disabling Enhance Security for the vault..."
             Set-AzRecoveryServicesVaultProperty -VaultId $vault.ID -DisableHybridBackupSecurityFeature $true > $null
 
 
@@ -282,7 +279,11 @@ if ($rsVaults.Count -gt 0) {
             # Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting Azure VM backup items..."
             $backupItemsVM = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -VaultId $vault.ID
-            $backupItemsVM | ForEach-Object { Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force > $null }
+            $backupItemsVM | ForEach-Object {
+                $job = Disable-AzRecoveryServicesBackupProtection -Item $_ -VaultId $vault.ID -RemoveRecoveryPoints -Force -AsJob > $null
+                AddJob -newJob $job -msgType "rg"
+                CheckJobs
+            }
 
             # SQL Server in Azure VM
             Write-Host -ForegroundColor DarkGray "Disabling and deleting SQL Server backup items..."
@@ -435,7 +436,7 @@ ResetJobs
 $rgList | ForEach-Object {
     if (($_.ProvisioningState -eq "Succeeded") -and ($lockedrgs -notcontains $_.ResourceGroupName)) {
         $delRg = Remove-AzResourceGroup -Name $_.ResourceGroupName -Force -AsJob
-        AddJob -newJob $delRG -type "rg" -rgName $_.ResourceGroupName
+        AddJob -newJob $delRG -msgType "rg" -rgName $_.ResourceGroupName
     } else {
         Write-Host -ForegroundColor DarkGray "Skipping resource group '$($_.ResourceGroupName)'."
         $jobSkip++
@@ -446,7 +447,7 @@ Write-Host -ForegroundColor DarkGray "The script will continue to monitor the pr
 
 
 # Looping CheckJobs function
-CheckJobs -jobList $jobList
+CheckJobs
 
 
 # Remaining resource groups
