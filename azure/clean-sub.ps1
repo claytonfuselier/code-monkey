@@ -14,7 +14,7 @@
 #       related failures for some jobs. Subsequent script executions *should* remove any resource groups
 #       that failed previously, assuming the dependencies were removed in the previous execution.
 # Note: You can optionally check for and remove certain classic (ASM) resources by setting $skipClassic
-#       to 0. This will also require you to have the classic (ASM) module "Azure" installed.
+#       to $false. This will also require you to have the classic (ASM) module "Azure" installed.
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/azure/clean-sub.ps1
 
@@ -24,7 +24,7 @@
 ##  Required variables  ##
 ##########################
 $subID = ""               # ID for the subscription to be purged.
-$skipClassic = 1          # Whether to skip checking for classic resources; (1=skip, 0=check)
+$skipClassic = $true      # Whether to skip checking for classic resources; ($true=skip, $false=check)
 $showErrors = $false      # Some errors are expected, so they are hidden by default.
 
 
@@ -163,7 +163,7 @@ if (-not $skipClassic) {
         $classicLogin = Add-AzureAccount
         if (-not $classicLogin) {
             Write-Host -ForegroundColor Red "Authentication to Azure (Classic) failed or was not completed."
-            Write-Host -ForegroundColor Red "If you want to skip classic resources, set the '`$skipClassic' variable to '1'."
+            Write-Host -ForegroundColor Red "If you want to skip classic resources, set the '`$skipClassic' variable to '`$true'."
             exit
         }
     }
