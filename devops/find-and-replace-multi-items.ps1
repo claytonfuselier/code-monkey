@@ -27,6 +27,19 @@ $csvPath = ""   # Path to CSV file
 ####################
 $scriptStart = Get-Date
 
+# Validating CSV path
+if (-not (Test-Path -Path $csvPath)) {
+    Write-Host -ForegroundColor Red "The CSV file '$csvPath' does not exist."
+    exit
+} else {
+    # Validating CSV headers
+    $csvItems = Import-Csv -Path $csvPath
+    if (-not ($csvItems[0].PSObject.Properties.Name -contains 'OldString' -and $csvItems[0].PSObject.Properties.Name -contains 'NewString')) {
+        Write-Host -ForegroundColor Red "The CSV file does not have the required column name(s) 'OldString' and/or 'NewString'."
+        exit
+    }
+}
+
 # Read CSV file into $csvItems
 Write-Host -ForegroundColor Gray "Reading CSV file..."
 $csvItems = Import-Csv -Path $csvPath | Select-Object -Property @{Name='OldString';Expression={$_.OldString.Trim()}}, @{Name='NewString';Expression={$_.NewString.Trim()}}
