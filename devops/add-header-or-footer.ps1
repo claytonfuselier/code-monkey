@@ -15,8 +15,8 @@
 ##  Required variables  ##
 ##########################
 $gitRoot = ""       # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$addWhere = "top"   # Add the content at the top or bottom of the page? (e.g., "top" or "bottom")
-$newContent = ""    # Content to add (line breaks are supported)
+$addWhere = "top"   # Where to add the content? (e.g., "top", "bottom", "topaftertags")
+$newContent = ""    # Content to add (line breaks are supported with `n)
 
 
 
@@ -32,19 +32,45 @@ $pages = Get-ChildItem -Path $gitRoot -Recurse | where { $_.Extension -eq ".md" 
 
 # Parse each page
 $pages | ForEach-Object {
-    $fullPath = $_.FullName
     $_.FullName.Replace($gitRoot, "") | Write-Host
+    # Get page contents
+    $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8 -Raw
+    $modifiedContent = $null
 
-    # Get page contents and add new content
+    # Modify page content
     switch ($addWhere) {
-        "top" { $pageContent = $newContent + "`n" + (Get-Content -LiteralPath $fullPath -Raw); break }
-        "bottom" { $pageContent = (Get-Content -LiteralPath $fullPath -Raw) + "`n" + $newContent; break }
-        default { Write-Host -ForegroundColor Red -BackgroundColor Black "You must specify a valid value for `"`$addWhere`" before executing this script."; exit }
+        "top" {
+            $modifiedContent = $newContent + "`n" + $pageContent
+            break
+        }
+        "bottom" {
+            $modifiedContent = $pageContent + "`n" + $newContent
+            break
+        }
+        "topaftertags" {
+            $tags = ([regex]::Matches($pageContent, "---\s*\n(.*?\n)*?---", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+            if ($tags.Count -eq 0){
+                Write-Host -ForegroundColor DarkGray "No yaml/tags detected. Skipping..."
+            } else {
+                if ($tags.Count -eq 1) {
+                    $modifiedContent = $pageContent -replace $tags, "$tags`n`n$newContent"
+                } else {
+                    $modifiedContent = $pageContent -replace $tags[0], "$($tags[0])`n`n$newContent"
+                }
+            }
+            break
+        }
+        default {
+            Write-Host -ForegroundColor Red -BackgroundColor Black "You must specify a valid value for `"`$addWhere`" before executing this script."
+            exit
+        }
     }
 
     # Save modified page content
-    Set-Content -LiteralPath $fullPath -Encoding UTF8 -Value $pageContent
-    $updPageCnt++
+    if ($modifiedContent -ne $null){
+        Set-Content -LiteralPath $_.FullName -Value $modifiedContent -Encoding UTF8
+        $updPageCnt++
+    }
 
     # Progress bar
     $pageCnt++
