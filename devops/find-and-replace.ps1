@@ -6,8 +6,8 @@
 # across every .md file.
 #
 # Note: The $find string is case-insensitive.
-# Note: Regex is supported in the $find string. Be sure to escape special characters by using the
-#       backtick/grave accent (`).
+# Note: Regex is supported in the $find string. Be sure to set $findUseRegex to 1. If using the
+#        double-quotes ("), escape it by using the backtick/grave accent (`).
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/find-and-replace.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -17,9 +17,10 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitRoot = ""   # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$find = ""      # String to find and replace. Supports regex (see note above)
-$replace = ""   # New content to replace the old content
+$gitRoot = ""       # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$find = ""          # String to find and replace. Supports regex (see note above)
+$findUseRegex = 0   # 0 or 1. If the $find string is regex, set this to 1. Otherwise leave it as 0.
+$replace = ""       # New content to replace the old content
 
 
 
@@ -43,11 +44,19 @@ $pages | ForEach-Object {
     $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
 
     # Counting/Checking for matches
-    $matches = ([regex]::Matches($pageContent, [regex]::Escape($find), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    if ($findUseRegex) {
+        $matches = ([regex]::Matches($pageContent, $find, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    } else {
+        $matches = ([regex]::Matches($pageContent, [regex]::Escape($find), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    }
     if ($matches -gt 0) {
 
         # Find and replace
-        $newContent = $pageContent -ireplace [regex]::Escape($find), $replace
+        if ($findUseRegex) {
+            $newContent = $pageContent -ireplace $find, $replace
+        } else {
+            $newContent = $pageContent -ireplace [regex]::Escape($find), $replace
+        }
 
         # Save the new content
         $newContent | Set-Content -Encoding UTF8 -Path $_.FullName
