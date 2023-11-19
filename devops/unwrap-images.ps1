@@ -23,8 +23,9 @@ $action = 1        # Action Options:
                       # 1: Unwrap and convert image to markdown
                       # 2: Unwrap but leave image as HTML
                       # 3: Convert wrap and image to markdown
+$bonus = 0
 
-
+######################################################################################## To do: need processing for width, height, and alt (if present). if present, use alt in place of filename.
 
 ####################
 ##  Begin Script  ##
@@ -49,9 +50,10 @@ $pages | ForEach-Object {
 
 
     # Check for HTML links wrapped around HTML image tags
-    if($pageContent -match "<a\s.+<img.+\/a>"){
+    if($pageContent -match "<a[^>]*><img[^>]*><\/a>"){
         # Get all wrapped images
         $wrappedImages = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        #$plainImages = [regex]::Matches($pageContent, "<img[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
         
         # Parse each instance
         $wrappedImages | ForEach-Object{
