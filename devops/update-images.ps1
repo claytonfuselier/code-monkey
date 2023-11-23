@@ -13,7 +13,10 @@
 #          2 - Unwrap but leave image as HTML.         Ex: "<img...>"
 #          3 - Convert wrap and image to markdown.     Ex: "[![AltText](/path/to/image)](URL-to-image)"
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/unwrap-images.ps1
+# You can also set $incldPlainImg to "1" if you would like to get HTML image tags that are NOT wrapped
+# and update them in the same manner.
+#
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/update-wrapped-images.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
@@ -21,11 +24,12 @@
 ##########################
 ##  Required variables  ##
 ##########################
-$gitRoot = ""      # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$action = 1        # Action Options:
-                      # 1: Unwrap and convert image to markdown
-                      # 2: Unwrap but leave image as HTML
-                      # 3: Convert wrap and image to markdown
+$gitRoot = ""        # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$action = 1          # Action Options:
+                        # 1: Unwrap and convert image to markdown
+                        # 2: Unwrap but leave image as HTML
+                        # 3: Convert wrap and image to markdown
+$incldPlainImg = 0   # 0=No, 1=Yes; Also modify non-wrapped images?
 
 
 
@@ -50,32 +54,34 @@ $pages | ForEach-Object {
     # Get contents of page
     $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
 
-    # Check for HTML links wrapped around HTML image tags
-    if($pageContent -match "<a[^>]*><img[^>]*><\/a>"){
-        # Get all wrapped images
-        $wrappedImages = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    # Check for HTML image tags
+#    if($pageContent -match "<a[^>]*><img[^>]*><\/a>"){
+    if($pageContent -match "<img[^>]*>"){
+        if($incldPlainImg){
+            # Get all HTML images
+            $images = [regex]::Matches($pageContent, "(<a[^>]*><img[^>]*><\/a>)|((?<!(<a[^>]*>\s*))<img[^>]*>)", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        }else{
+            # Get only wrapped images
+            $images = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        }
 
         # Parse each instance
-        $wrappedImages | ForEach-Object{
+        $images | ForEach-Object{
             # Get pre-spacing
-            $curWrappedImage = $_
+            $curImage = $_
             $preSpace = ""
             $pageContent | ForEach-Object{
-                if($_ -match [regex]::Escape($curWrappedImage)){
-                    $preSpace = ([regex]::Matches($_, "^(\t| )*(?=.*" + [regex]::Escape($curWrappedImage) + ")", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+                if($_ -match [regex]::Escape($curImage)){
+                    $preSpace = ([regex]::Matches($_, "^(\t| )*(?=.*" + [regex]::Escape($curImage) + ")", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                 }
             }
 
-            # Isolate anchor tag and get url
-            $link = [regex]::Matches($_, "<a[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-            $linkHref = [regex]::Matches($link, "href=(`"|')?[^`"'\s]*(`"|')?", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-            $linkUrl = $linkHref.Value.Replace("href=","").Replace("`"","")
-
             # Isolate img tag
-            $img = ([regex]::Matches($_, "<img[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+#            $img = ([regex]::Matches($_, "<img[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
 
-            # Get and parse img attributes
-            $imgAttribs = ([regex]::Matches($img, "(?<=\s)\w*=[^`"']*`"[^`"']*`"", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+            # Get and parse attributes
+#            $imgAttribs = ([regex]::Matches($img, "(?<=\s)\w*=[^`"']*`"[^`"']*`"", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+            $imgAttribs = ([regex]::Matches($_, "(?<=\s)\w*=[^`"']*`"[^`"']*`"", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
             $imgAttribs | ForEach-Object{
                 $curAttrib = $_
                 $altText = $null
@@ -85,11 +91,12 @@ $pages | ForEach-Object {
                 # Split attribute
                 $attribName = $_.Split("=")[0]
                 $attribValue = $_.Split("=")[1]
-
+                
                 # Process attribute
                 switch ($attribName) {
                     "src" {
-                        $imgSrcUrl = $curAttrib.Replace("src=","").Replace("`"","") + "&download=false&resolveLfs=true&%24format=octetStream"
+                        $imgSrcUrl = $curAttrib.Replace("src=","").Replace("`"","")
+                        $imgClickUrl = $imgSrcUrl + "&download=false&resolveLfs=true&%24format=octetStream"
                         $imgPath = ([regex]::Matches($imgSrcUrl, "path=[^\s&`"]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                         $fixedPath = $imgPath.Replace("path=","").Replace("%2f","/").Replace("%2F","/")
                     }
@@ -137,12 +144,12 @@ $pages | ForEach-Object {
                     $newLine = "<img $htmlAttrib>"
                 }
                 3{
-                    $newLine = "`n`n$preSpace[![$altText]($mdImgSrc)]($imgSrcUrl)"
+                    $newLine = "`n`n$preSpace[![$altText]($mdImgSrc)]($imgClickUrl)"
                 }
             }
 
             # Replace content
-            $pageContent = $pageContent -replace [Regex]::Escape("$curWrappedImage"), $newLine
+            $pageContent = $pageContent -replace [Regex]::Escape("$_"), $newLine
             Write-Host -ForegroundColor Cyan "Updated image..."
             $updated = $true
             $totalEdits++
