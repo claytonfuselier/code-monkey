@@ -6,9 +6,12 @@
 # Focus is on parsing .md files for HTML image tags that are wrapped inside HTML anchor (link) tags
 # (e.g., "<a...><img...></a>") and taking one of three actions below.
 #
-# Actions: 1 - Unwrap and convert image to markdown. Ex: "![AltText](/path/to/image)"
-#          2 - Unwrap but leave as HTML.             Ex: "<img...>"
-#          3 - Leave wrap and convert to markdown.   Ex: "[![AltText](/path/to/image)](URL-to-image)"
+# In other words, taking HTML embedded images that link to themselves when clicked, and modifying how
+# they behave or are embedded.
+#
+# Actions: 1 - Unwrap and convert image to markdown.   Ex: "![AltText](/path/to/image)"
+#          2 - Unwrap but leave image as HTML.         Ex: "<img...>"
+#          3 - Convert wrap and image to markdown.     Ex: "[![AltText](/path/to/image)](URL-to-image)"
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/unwrap-images.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -126,11 +129,17 @@ $pages | ForEach-Object {
                 $mdImgSrc = "$fixedPath =x$heightSize"
             }
 
-            # Take $action and create replacement line
+            # Create new replacement line
             switch ($action) {
-                {$_ -le 1} {$newLine = "`n`n$preSpace![$altText]($mdImgSrc)"}
-                2 {$newLine = "<img $htmlAttrib>"}
-                3 {$newLine = "`n`n$preSpace[![$altText]($mdImgSrc)]($imgSrcUrl)"}
+                1{
+                    $newLine = "`n`n$preSpace![$altText]($mdImgSrc)"
+                }
+                2{
+                    $newLine = "<img $htmlAttrib>"
+                }
+                3{
+                    $newLine = "`n`n$preSpace[![$altText]($mdImgSrc)]($imgSrcUrl)"
+                }
             }
 
             # Replace content
@@ -159,4 +168,4 @@ $pages | ForEach-Object {
 }
 
 Write-Host -ForegroundColor Yellow "Pages updated: $editedPages"
-Write-Host -ForegroundColor Yellow "Image links updated: $totalEdits"
+Write-Host -ForegroundColor Yellow "Lines updated: $totalEdits"
