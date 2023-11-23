@@ -13,7 +13,7 @@
 #          2 - Unwrap but leave image as HTML.         Ex: "<img...>"
 #          3 - Convert wrap and image to markdown.     Ex: "[![AltText](/path/to/image)](URL-to-image)"
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/unwrap-images.ps1
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/update-wrapped-images.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
