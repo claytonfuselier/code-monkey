@@ -54,7 +54,6 @@ $pages | ForEach-Object {
     if($pageContent -match "<a[^>]*><img[^>]*><\/a>"){
         # Get all wrapped images
         $wrappedImages = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-#        $plainImages = [regex]::Matches($pageContent, "<img[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
         # Parse each instance
         $wrappedImages | ForEach-Object{
