@@ -89,7 +89,7 @@ $pages | ForEach-Object {
                 # Process attribute
                 switch ($attribName) {
                     "src" {
-                        $imgSrcUrl = $curAttrib.Replace("src=","").Replace("`"","")
+                        $imgSrcUrl = $curAttrib.Replace("src=","").Replace("`"","") + "&download=false&resolveLfs=true&%24format=octetStream"
                         $imgPath = ([regex]::Matches($imgSrcUrl, "path=[^\s&`"]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                         $fixedPath = $imgPath.Replace("path=","").Replace("%2f","/").Replace("%2F","/")
                     }
