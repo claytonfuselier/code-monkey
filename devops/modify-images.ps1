@@ -3,20 +3,21 @@
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
 #
-# Focus is on parsing .md files for HTML image tags that are wrapped inside HTML anchor (link) tags
+# Focus is on parsing .md files for HTML image tags and modifying how they behave and/or are embedded.
+# Particular attention is given to HTML images that are wrapped inside HTML anchor (link) tags
 # (e.g., "<a...><img...></a>") and taking one of three actions below.
-#
-# In other words, taking HTML embedded images that link to themselves when clicked, and modifying how
-# they behave or are embedded.
 #
 # Actions: 1 - Unwrap and convert image to markdown.   Ex: "![AltText](/path/to/image)"
 #          2 - Unwrap but leave image as HTML.         Ex: "<img...>"
 #          3 - Convert wrap and image to markdown.     Ex: "[![AltText](/path/to/image)](URL-to-image)"
 #
-# You can also set $incldPlainImg to "1" if you would like to get HTML image tags that are NOT wrapped
-# and update them in the same manner.
+# If $incldPlainImg is set to "1", then the script will also modify non-wrapped HTML images to the same
+# format.
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/update-wrapped-images.ps1
+# Note: The script attempts to maintain the existing tab/indention to not disrupt the flow or appearance
+#       of any content. Be sure to review all changes to ensure they render properly and as desired.
+#
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/modify-images.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
@@ -25,11 +26,8 @@
 ##  Required variables  ##
 ##########################
 $gitRoot = ""        # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$action = 1          # Action Options:
-                        # 1: Unwrap and convert image to markdown
-                        # 2: Unwrap but leave image as HTML
-                        # 3: Convert wrap and image to markdown
-$incldPlainImg = 0   # 0=No, 1=Yes; Also modify non-wrapped images?
+$action = 1          # 1, 2, or 3; See summary above for descriptions of each action.
+$incldPlainImg = 1   # 0=No, 1=Yes; Also modify non-wrapped images?
 
 
 
@@ -38,10 +36,8 @@ $incldPlainImg = 0   # 0=No, 1=Yes; Also modify non-wrapped images?
 ####################
 $scriptStartTime = Get-Date
 
-
 # Get all pages
 $pages = Get-ChildItem -Recurse $gitRoot -Include *.md | where {! $_.PSIsContainer}
-
 
 # Parse each page
 $pageCnt = 0
@@ -55,14 +51,13 @@ $pages | ForEach-Object {
     $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
 
     # Check for HTML image tags
-#    if($pageContent -match "<a[^>]*><img[^>]*><\/a>"){
     if($pageContent -match "<img[^>]*>"){
         if($incldPlainImg){
             # Get all HTML images
-            $images = [regex]::Matches($pageContent, "(<a[^>]*><img[^>]*><\/a>)|((?<!(<a[^>]*>\s*))<img[^>]*>)", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+            $images = [regex]::Matches($pageContent, "(<a[^>]*><img[^>]*(src=)[^>]*><\/a>)|((?<!(<a[^>]*>\s*))<img[^>]*(src=)[^>]*>)", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
         }else{
             # Get only wrapped images
-            $images = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+            $images = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*(src=)[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
         }
 
         # Parse each instance
@@ -76,17 +71,13 @@ $pages | ForEach-Object {
                 }
             }
 
-            # Isolate img tag
-#            $img = ([regex]::Matches($_, "<img[^>]*>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
-
             # Get and parse attributes
-#            $imgAttribs = ([regex]::Matches($img, "(?<=\s)\w*=[^`"']*`"[^`"']*`"", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
             $imgAttribs = ([regex]::Matches($_, "(?<=\s)\w*=[^`"']*`"[^`"']*`"", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+            $altText = $null
+            $widthSize = $null
+            $heightSize = $null
             $imgAttribs | ForEach-Object{
                 $curAttrib = $_
-                $altText = $null
-                $widthSize = $null
-                $heightSize = $null
 
                 # Split attribute
                 $attribName = $_.Split("=")[0]
@@ -96,9 +87,19 @@ $pages | ForEach-Object {
                 switch ($attribName) {
                     "src" {
                         $imgSrcUrl = $curAttrib.Replace("src=","").Replace("`"","")
-                        $imgClickUrl = $imgSrcUrl + "&download=false&resolveLfs=true&%24format=octetStream"
-                        $imgPath = ([regex]::Matches($imgSrcUrl, "path=[^\s&`"]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
-                        $fixedPath = $imgPath.Replace("path=","").Replace("%2f","/").Replace("%2F","/")
+                        $domain = ([regex]::Matches($imgSrcUrl, "(?<=https?:\/\/)[^\/]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+                        
+                        # Check if image URL is hosted in ADO
+                        if($domain -eq "dev.azure.com" -or $domain -like "*.visualstudio.com"){
+                            # Process/Modify image hosted internal in ADO
+                            $imgClickUrl = $imgSrcUrl + "&download=false&resolveLfs=true&%24format=octetStream"
+                            $imgPath = ([regex]::Matches($imgSrcUrl, "path=[^\s&`"]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
+                            $fixedPath = $imgPath.Replace("path=","").Replace("%2f","/").Replace("%2F","/")
+                        }else{
+                            # Process/Modify externally hosted images
+                            $imgClickUrl = $imgSrcUrl
+                            $fixedPath = $imgSrcUrl
+                        }
                     }
                     "alt" {
                         $altText = $attribValue.Replace("`"","").Replace("'","")
@@ -112,7 +113,7 @@ $pages | ForEach-Object {
                 }
             }
 
-            # Format html attributes
+            # Format HTML attributes
             $htmlAttrib = "src=`"$imgSrcUrl`""
             if($altText){
                 $htmlAttrib += " alt=`"$altText`""
