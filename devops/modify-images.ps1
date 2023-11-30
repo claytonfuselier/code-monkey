@@ -34,39 +34,39 @@ $incldPlainImg = 1   # 0=No, 1=Yes; Also modify non-wrapped images?
 ####################
 ##  Begin Script  ##
 ####################
-$scriptStartTime = Get-Date
+$scriptStart = Get-Date
 
 # Get all pages
-$pages = Get-ChildItem -Recurse $gitRoot -Include *.md | where {! $_.PSIsContainer}
+$pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 
 # Parse each page
 $pageCnt = 0
 $editedPages = 0
 $totalEdits = 0
 $pages | ForEach-Object {
-    # Output current page
-    $_.FullName.Replace("$gitRoot","") | Write-Host
+    # Console output for current page
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Get contents of page
-    $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
+    $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
 
     # Check for HTML image tags
-    if($pageContent -match "<img[^>]*>"){
-        if($incldPlainImg){
+    if ($pageContent -match "<img[^>]*>") {
+        if ($incldPlainImg) {
             # Get all HTML images
             $images = [regex]::Matches($pageContent, "(<a[^>]*><img[^>]*(src=)[^>]*><\/a>)|((?<!(<a[^>]*>\s*))<img[^>]*(src=)[^>]*>)", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        }else{
+        } else {
             # Get only wrapped images
             $images = [regex]::Matches($pageContent, "<a[^>]*><img[^>]*(src=)[^>]*><\/a>", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
         }
 
         # Parse each instance
-        $images | ForEach-Object{
+        $images | ForEach-Object {
             # Get pre-spacing
             $curImage = $_
             $preSpace = ""
-            $pageContent | ForEach-Object{
-                if($_ -match [regex]::Escape($curImage)){
+            $pageContent | ForEach-Object {
+                if ($_ -match [regex]::Escape($curImage)) {
                     $preSpace = ([regex]::Matches($_, "^(\t| )*(?=.*" + [regex]::Escape($curImage) + ")", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                 }
             }
@@ -76,7 +76,7 @@ $pages | ForEach-Object {
             $altText = $null
             $widthSize = $null
             $heightSize = $null
-            $imgAttribs | ForEach-Object{
+            $imgAttribs | ForEach-Object {
                 $curAttrib = $_
 
                 # Split attribute
@@ -90,12 +90,12 @@ $pages | ForEach-Object {
                         $domain = ([regex]::Matches($imgSrcUrl, "(?<=https?:\/\/)[^\/]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                         
                         # Check if image URL is hosted in ADO
-                        if($domain -eq "dev.azure.com" -or $domain -like "*.visualstudio.com"){
+                        if ($domain -eq "dev.azure.com" -or $domain -like "*.visualstudio.com") {
                             # Process/Modify image hosted internal in ADO
                             $imgClickUrl = $imgSrcUrl + "&download=false&resolveLfs=true&%24format=octetStream"
                             $imgPath = ([regex]::Matches($imgSrcUrl, "path=[^\s&`"]*", [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
                             $fixedPath = $imgPath.Replace("path=","").Replace("%2f","/").Replace("%2F","/")
-                        }else{
+                        } else {
                             # Process/Modify externally hosted images
                             $imgClickUrl = $imgSrcUrl
                             $fixedPath = $imgSrcUrl
@@ -115,42 +115,42 @@ $pages | ForEach-Object {
 
             # Format HTML attributes
             $htmlAttrib = "src=`"$imgSrcUrl`""
-            if($altText){
+            if ($altText) {
                 $htmlAttrib += " alt=`"$altText`""
             }
-            if($widthSize){
+            if ($widthSize) {
                 $htmlAttrib += " width=`"$widthSize`""
             }
-            if($heightSize){
+            if ($heightSize) {
                 $htmlAttrib += " height=`"$heightSize`""
             }
 
             # Format markdown attributes
-            if($widthSize -and $heightSize){
+            if ($widthSize -and $heightSize) {
                 $mdImgSrc = "$fixedPath =$widthSize"+"x"+"$heightSize"
             }
-            if($widthSize -and -not$heightSize){
+            if ($widthSize -and -not$heightSize) {
                 $mdImgSrc = "$fixedPath =$widthSize"+"x"
             }
-            if(-not$widthSize -and $heightSize){
+            if (-not$widthSize -and $heightSize) {
                 $mdImgSrc = "$fixedPath =x$heightSize"
             }
 
             # Create new replacement line
             switch ($action) {
-                1{
+                1 {
                     $newLine = "`n`n$preSpace![$altText]($mdImgSrc)"
                 }
-                2{
+                2 {
                     $newLine = "<img $htmlAttrib>"
                 }
-                3{
+                3 {
                     $newLine = "`n`n$preSpace[![$altText]($mdImgSrc)]($imgClickUrl)"
                 }
             }
 
             # Replace content
-            $pageContent = $pageContent -replace [Regex]::Escape("$_"), $newLine
+            $pageContent = $pageContent -replace [Regex]::Escape($_), $newLine
             Write-Host -ForegroundColor Cyan "Updated image..."
             $updated = $true
             $totalEdits++
@@ -158,8 +158,8 @@ $pages | ForEach-Object {
     }
 
     # Save modified page content
-    if($updated){
-        Set-Content -Encoding UTF8 -LiteralPath $_.FullName -Value $pageContent
+    if ($updated) {
+        Set-Content -LiteralPath $_.FullName -Value $pageContent -Encoding UTF8
         Write-Host -ForegroundColor Yellow "Saved!"
         $updated = $false
         $editedPages++
@@ -167,7 +167,7 @@ $pages | ForEach-Object {
 
     # Progress bar
     $pageCnt++
-    $avg = ((Get-Date) – $scriptStartTime).TotalMilliseconds/$pageCnt
+    $avg = ((Get-Date) – $scriptStart).TotalMilliseconds/$pageCnt
     $msLeft = (($pages.Count–$pageCnt)*$avg)
     $time = New-TimeSpan –Seconds ($msLeft/1000)
     $percent = [MATH]::Round(($pageCnt/$pages.Count)*100,2)
