@@ -10,10 +10,6 @@
 # You are STRONGLY encouraged to run an "Orphaned Files" script to find and clean up any no longer
 # needed images, templates, etc.
 #
-# Note: Setting $maintainStructure to 0 (No), could result in errors if there are multiple files with
-#       the same name from different locations going to a singular destination. It is STRONGLY
-#       advised to keep this option "on" (1).
-#
 # Note: The script will ignore/exclude any files currently in the $graveyard destination.
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/archived-pages.ps1
@@ -49,12 +45,8 @@ $archivedPages | ForEach-Object {
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Define destination
-    if ($maintainStructure) {
-        $curRelPath = $_.DirectoryName.Replace($gitRoot, "")
-        $dest = $graveyard + $curRelPath
-    } else {
-        $dest = $graveyard
-    }
+    $curRelPath = $_.DirectoryName.Replace($gitRoot, "")
+    $dest = $graveyard + $curRelPath
 
     # Create path if non-existent
     if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
