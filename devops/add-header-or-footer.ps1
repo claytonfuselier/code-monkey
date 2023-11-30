@@ -33,7 +33,9 @@ $pages = Get-ChildItem -Path $gitRoot -Include "*.md" -Recurse -File | where { $
 
 # Parse each page
 $pages | ForEach-Object {
+    # Console output of current page
     $_.FullName.Replace($gitRoot, "") | Write-Host
+    
     # Get page contents
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
     $modifiedContent = $null
