@@ -2,6 +2,7 @@
 ##  Summary  ##
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
+#
 # Focus is on parsing .md files for URLs with a certain domain (and/or sub domain) and recording every instance
 # in a CSV. Using a wildcard to find "all" URLs is not (currently) supported; a domain must be provided.
 #
@@ -28,20 +29,21 @@ $allSubs = 0       # 0 or 1. See note in "Summary" above.
 ####################
 ##  Begin Script  ##
 ####################
-$scriptStartTime = Get-Date
+$scriptStart = Get-Date
 $pageCnt = 0
 
 # Get pages
-$pages = Get-ChildItem -Path $gitRoot -Recurse -Filter "*.md" -File
+$pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 
 # Parse pages
 $pages | ForEach-Object {
-    $pageName = $_.Name
-    $pagePath = ($_.Directory.FullName).Replace($gitRoot, "")
-    Write-Host "$pagePath\$pageName"
+    # Console output for current page
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
-    # Get page content
+    # Get page details
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
+    $pageName = $_.Name
+    $pagePath = $_.DirectoryName.Replace($gitRoot, "")
 
     # Parse each line
     $line = 1
@@ -51,11 +53,10 @@ $pages | ForEach-Object {
 
             # Set RegEx pattern                       
             if ($allSubs) {
-                $urlRegex = 'https?(:\/\/|%3A%2F%2F)(?:([a-z]|[0-9]|\-)*\.)*' + [regex]::Escape($domain) + '(\/|%2F)[^)\]}\s>]*'
+                $urlRegex = "https?(:\/\/|%3A%2F%2F)(?:([a-z]|[0-9]|\-)*\.)*" + [regex]::Escape($domain) + "(\/|%2F)[^)\]}\s>]*"
             } else {
-                $urlRegex = 'https?(:\/\/|%3A%2F%2F)' + [regex]::Escape($domain) + '(\/|%2F)[^)\]}\s>]*'
+                $urlRegex = "https?(:\/\/|%3A%2F%2F)" + [regex]::Escape($domain) + "(\/|%2F)[^)\]}\s>]*"
             }
-
 
             # Get all matches in the line (accounts for potentially multiple matches per line)
             $urls = [regex]::Matches($_, $urlRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
@@ -77,7 +78,7 @@ $pages | ForEach-Object {
 
     # Progress bar
     $pageCnt++
-    $avg = ((Get-Date) - $scriptStartTime).TotalMilliseconds / $pageCnt
+    $avg = ((Get-Date) - $scriptStart).TotalMilliseconds / $pageCnt
     $msleft = (($pages.Count - $pageCnt) * $avg)
     $time = New-TimeSpan -Seconds ($msleft / 1000)
     $percent = [Math]::Round(($pageCnt / $pages.Count) * 100, 2)

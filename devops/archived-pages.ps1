@@ -36,7 +36,7 @@ $maintainStructure = 1   # 0=No, 1=Yes; Create same folder structure in the grav
 $scriptStart = Get-Date
 
 # Get archived pages
-$archivedPages = Get-ChildItem -Path $gitRoot -Recurse -Filter "*.archive" -File | where {$_.DirectoryName -notlike "$graveyard*"}
+$archivedPages = Get-ChildItem -Path $gitRoot -Filter "*.archive" -Recurse -File | where { $_.DirectoryName -notlike "$graveyard*" }
 
 # Define graveyard
 $graveyard = $graveyard + "\archived-" + (Get-Date -Format "yyyyMMdd")
@@ -46,18 +46,18 @@ $pageCnt = 0
 $movedPages = 0
 $archivedPages | ForEach-Object {
     # Console output for current page
-    Write-Host -ForegroundColor Gray ("$($_.FullName.Replace($gitRoot,''))")
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Define destination
-    if($maintainStructure){
+    if ($maintainStructure) {
         $curRelPath = $_.DirectoryName.Replace($gitRoot, "")
         $dest = $graveyard + $curRelPath
-    }else{
+    } else {
         $dest = $graveyard
     }
 
     # Create path if non-existent
-    if(-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)){
+    if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
         New-Item -ItemType Directory -Path $dest -ErrorAction SilentlyContinue
     }
 
