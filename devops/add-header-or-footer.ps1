@@ -2,6 +2,7 @@
 ##  Summary  ##
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
+#
 # Focus is on adding a header/footer or other content to the top or bottom of all .md files.
 #
 # Note: The script ignores files located under any "hidden" paths that begin with a period (".").
@@ -23,18 +24,18 @@ $newContent = ""    # Content to add (line breaks are supported with `n)
 ####################
 ##  Begin Script  ##
 ####################
-$scriptStartTime = Get-Date
+$scriptStart = Get-Date
 $pageCnt = 0
 $updPageCnt = 0
 
 # Get all pages
-$pages = Get-ChildItem -Path $gitRoot -Recurse | where { $_.Extension -eq ".md" -and $_.DirectoryName -notlike "*.*" }
+$pages = Get-ChildItem -Path $gitRoot -Include "*.md" -Recurse -File | where { $_.DirectoryName -notlike "*.*" }
 
 # Parse each page
 $pages | ForEach-Object {
     $_.FullName.Replace($gitRoot, "") | Write-Host
     # Get page contents
-    $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8 -Raw
+    $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
     $modifiedContent = $null
 
     # Modify page content
@@ -49,7 +50,7 @@ $pages | ForEach-Object {
         }
         "topaftertags" {
             $tags = ([regex]::Matches($pageContent, "---\s*\n(.*?\n)*?---", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Value
-            if ($tags.Count -eq 0){
+            if ($tags.Count -eq 0) {
                 Write-Host -ForegroundColor DarkGray "No yaml/tags detected. Skipping..."
             } else {
                 if ($tags.Count -eq 1) {
@@ -67,14 +68,14 @@ $pages | ForEach-Object {
     }
 
     # Save modified page content
-    if ($modifiedContent -ne $null){
+    if ($modifiedContent -ne $null) {
         Set-Content -LiteralPath $_.FullName -Value $modifiedContent -Encoding UTF8
         $updPageCnt++
     }
 
     # Progress bar
     $pageCnt++
-    $avg = ((Get-Date) - $scriptStartTime).TotalMilliseconds / $pageCnt
+    $avg = ((Get-Date) - $scriptStart).TotalMilliseconds / $pageCnt
     $msLeft = (($pages.Count - $pageCnt) * $avg)
     $time = New-TimeSpan -Seconds ($msLeft / 1000)
     $percent = [Math]::Round(($pageCnt / $pages.Count) * 100, 2)
