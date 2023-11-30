@@ -33,8 +33,8 @@ $pages = Get-ChildItem -Path $gitRoot -Include "*.md" -Recurse -File | where { $
 
 # Parse each page
 $pages | ForEach-Object {
-    # Console output of current page
-    $_.FullName.Replace($gitRoot, "") | Write-Host
+    # Console output for current page
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
     
     # Get page contents
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
