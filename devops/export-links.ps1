@@ -37,12 +37,13 @@ $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 
 # Parse pages
 $pages | ForEach-Object {
-    $pageName = $_.Name
-    $pagePath = ($_.Directory.FullName).Replace($gitRoot, "")
-    Write-Host "$pagePath\$pageName"
+    # Console output for current page
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
-    # Get page content
+    # Get page details
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
+    $pageName = $_.Name
+    $pagePath = $_.DirectoryName.Replace($gitRoot, "")
 
     # Parse each line
     $line = 1
@@ -56,7 +57,6 @@ $pages | ForEach-Object {
             } else {
                 $urlRegex = "https?(:\/\/|%3A%2F%2F)" + [regex]::Escape($domain) + "(\/|%2F)[^)\]}\s>]*"
             }
-
 
             # Get all matches in the line (accounts for potentially multiple matches per line)
             $urls = [regex]::Matches($_, $urlRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
