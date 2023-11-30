@@ -30,7 +30,7 @@ $replace = ""       # New content to replace the old content
 $scriptStart = Get-Date
 
 # Get pages
-$pages = Get-ChildItem -Path $gitRoot -Recurse -Filter "*.md" -File
+$pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 
 # Parse each page
 $pageCnt = 0
@@ -38,10 +38,10 @@ $totalEdits = 0
 $editedPages = 0
 $pages | ForEach-Object {
     # Console output for current page
-    Write-Host -ForegroundColor Gray ("$($_.FullName.Replace($gitRoot,''))")
+    Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Get page content
-    $pageContent = Get-Content -Encoding UTF8 -LiteralPath $_.FullName
+    $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
 
     # Counting/Checking for matches
     if ($findUseRegex) {
@@ -59,7 +59,7 @@ $pages | ForEach-Object {
         }
 
         # Save the new content
-        $newContent | Set-Content -Encoding UTF8 -Path $_.FullName
+        Set-Content -LiteralPath $_.FullName -Value $newContent -Encoding UTF8
 
         # Console output plus running tally
         Write-Host -ForegroundColor Cyan "Updated $matches occurrence(s)"
