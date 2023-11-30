@@ -16,7 +16,7 @@
 #
 # Note: The script will ignore/exclude any files currently in the $graveyard destination.
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/archive-pages.ps1
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/archived-pages.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
