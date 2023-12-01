@@ -112,10 +112,10 @@ $pages | ForEach-Object {
 
     # Progress bar
     $pageCnt++
-    $avg = ((Get-Date) – $scriptStart).TotalMilliseconds/$pageCnt
-    $msLeft = (($pages.Count–$pageCnt)*$avg)
-    $time = New-TimeSpan –Seconds ($msLeft/1000)
-    $percent = [MATH]::Round(($pageCnt/$pages.Count)*100,2)
+    $avg = ((Get-Date) – $scriptStart).TotalMilliseconds / $pageCnt
+    $msLeft = (($pages.Count – $pageCnt) * $avg)
+    $time = New-TimeSpan –Seconds ($msLeft / 1000)
+    $percent = [MATH]::Round(($pageCnt / $pages.Count) * 100, 2)
     Write-Progress -Activity "Scanning for borken resources ($percent %)" -Status "$pageCnt of $($pages.Count) total pages - $time" -PercentComplete $percent
 }
 
