@@ -1,12 +1,12 @@
 ###############
 ##  Summary  ##
 ###############
-# Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repositiory).
+# Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
 #
-# Focus is on scanning each page for markdown links/images and template references, then confirming
+# Focus is on scanning each page for Markdown links/images and template references, then confirming
 # the reference points to a valid file.
 #
-# Note: Only relative markdown links are evaluated. Links using URLs or HTML tags not validated.
+# Note: Only relative Markdown links are evaluated. Links using URLs or HTML tags are not validated.
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -99,7 +99,7 @@ $pages | ForEach-Object {
                 return
             }
 
-            # Validate Reference
+            # Validating Reference
             $checkPath = "$gitRoot" + "\" + $_.Replace("/","\")
             if (-not (Test-Path -LiteralPath $checkPath -ErrorAction SilentlyContinue)){
                 Write-Host -ForegroundColor Cyan "Broken reference: $_"
