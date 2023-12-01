@@ -14,7 +14,7 @@
 #   the exported CSV for accuracy first.
 #
 # Note: $userResPaths supports multiple paths using the following syntax:
-#       $userResPaths = "drive:\path\to\include", "drive:\another\path\to\include"
+#       $userResPaths = @("drive:\path\to\include", "drive:\another\path\to\include")
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/orphaned-files.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -25,12 +25,10 @@
 ##  Required Variables  ##
 ##########################
 $gitRoot = ""             # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$userResPaths = "", ""    # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
+$userResPaths = @("", "")  # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
 $graveyard = "$gitRoot\.graveyard"   # Location for archived pages (e.g., "$gitRoot\.graveyard")
 $moveFiles = 0            # 0=No, 1=Yes; Move files to $graveyard
 $csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
-
-
 
 ####################
 ##  Begin Script  ##
@@ -42,9 +40,9 @@ $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File | where { $_
 
 # Get all non-page files
 Write-Host -ForegroundColor Cyan "Gathering non-page files..."
-$files = Get-ChildItem -Path $gitRoot -Recurse -File | where { $_.DirectoryName -ne $graveyard`
-                                                         -and $_.Extension -ne ".md"`
-                                                         -and $_.Extension -ne ".archive"`
+$files = Get-ChildItem -Path $gitRoot -Recurse -File | where { $_.DirectoryName -ne $graveyard `
+                                                         -and $_.Extension -ne ".md" `
+                                                         -and $_.Extension -ne ".archive" `
                                                          -and $_.BaseName -ne "" }
 
 # Get user provided resources
@@ -53,7 +51,7 @@ if ($userResPaths -ne "") {
     $userRes = Get-ChildItem -Path $userResPaths -Recurse -File | where { $_.BaseName -ne "" }
 
     # Merge $userRes and $files
-    Write-Host -ForegroundColor Cyan "Merging user provided files and non-page files into single array..."
+    Write-Host -ForegroundColor Cyan "Merging user provided files and non-page files into a single array..."
     $filenames = ($files | select FullName).FullName
     $userRes | ForEach-Object {
         if ($filenames -notcontains $_.FullName) {
@@ -75,7 +73,7 @@ $files | ForEach-Object {
 }
 
 # Define search blocks
-Write-Host -ForegroundColor Cyan "Defining search blocks of 100 from array..."
+Write-Host -ForegroundColor Cyan "Defining search blocks of 100 from the array..."
 $searchBlocks = @()
 $rMin = 0
 $rMax = 100
@@ -104,7 +102,8 @@ Write-Host -ForegroundColor Cyan "Scanning each page..."
 $startPages = Get-Date
 $pageCnt = 0
 $pages | ForEach-Object {
-    # Console output for current page
+    $matches = 0
+    # Console output for the current page
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Get page content
@@ -113,14 +112,14 @@ $pages | ForEach-Object {
     # Parse $pageContent for $searchBlocks
     $curBlock = 0
     $searchBlocks | ForEach-Object {
-        # Check if current block matches page
+        # Check if the current block matches the page
         if ($pageContent -match $_) {
-            # Check each file in current block
+            # Check each file in the current block
             $curFile = $curBlock * 100
             $blockEnd = $curFile + 99
             while ($curFile -le $blockEnd -and $curFile -lt $files.Count) {
-                if ($pageContent -match [regex]::Escape($files[$curFile].AdoPath)) {
-                    # Updating matched file UseCount
+                if ($pageContent -match [regex]::Escape($files[$curFile].AdoPath.ToLower())) {
+                    # Updating the matched file UseCount
                     $files[$curFile].UseCount++
                     $matches++
                 }
@@ -130,16 +129,15 @@ $pages | ForEach-Object {
         $curBlock++
     }
     if ($matches -gt 0) {
-        Write-Host -ForegroundColor Cyan "Updated $matches files in array"
+        Write-Host -ForegroundColor Cyan "Updated $matches files in the array"
     }
-    $matches = 0
 
     # Progress bar
     $pageCnt++
-    $avg = ((Get-Date) – $startPages).TotalMilliseconds/$pageCnt
-    $msleft = (($pages.Count–$pageCnt)*$avg)
-    $time = New-TimeSpan –Seconds ($msleft/1000)
-    $percent = [MATH]::Round(($pageCnt/$pages.Count)*100,2)
+    $avg = ((Get-Date) – $startPages).TotalMilliseconds / $pageCnt
+    $msLeft = (($pages.Count – $pageCnt) * $avg)
+    $time = New-TimeSpan –Seconds ($msLeft / 1000)
+    $percent = [MATH]::Round(($pageCnt / $pages.Count) * 100, 2)
     Write-Progress -Activity "Checking for orphaned files: $percent %" -Status "Scanning page $pageCnt of $($pages.Count), for $($files.Count) files - $time" -PercentComplete $percent
 }
 
@@ -150,16 +148,16 @@ $orphans = $files | where { $_.UseCount -eq 0 }
 $orphans | ForEach-Object {
     # Move orphans
     if ($moveFiles) {
-        # Define destination
+        # Define the destination
         $curRelPath = $_.DirectoryName.Replace($gitRoot, "")
         $dest = $graveyard + "\archived-" + (Get-Date -Format "yyyyMMdd") + $curRelPath
 
-        # Create path if non-existent
+        # Create the path if non-existent
         if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
             New-Item -ItemType Directory -Path $dest -ErrorAction SilentlyContinue
         }
 
-        # Move to graveyard
+        # Move to the graveyard
         Move-Item -LiteralPath $_.FullName -Destination $dest
     }
 
@@ -174,10 +172,10 @@ $orphans | ForEach-Object {
 
     # Progress bar
     $orphanCnt++
-    $avg = ((Get-Date) – $orphanStart).TotalMilliseconds/$orphanCnt
-    $msLeft = (($orphans.Count–$orphanCnt)*$avg)
-    $time = New-TimeSpan –Seconds ($msLeft/1000)
-    $percent = [MATH]::Round(($orphanCnt/$orphans.Count)*100,2)
+    $avg = ((Get-Date) – $orphanStart).TotalMilliseconds / $orphanCnt
+    $msLeft = (($orphans.Count – $orphanCnt) * $avg)
+    $time = New-TimeSpan –Seconds ($msLeft / 1000)
+    $percent = [MATH]::Round(($orphanCnt / $orphans.Count) * 100, 2)
     Write-Progress -Activity "Processing orphaned files ($percent %)" -Status "$orphanCnt of $($orphans.Count) total files - $time" -PercentComplete $percent
 }
 
