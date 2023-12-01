@@ -6,7 +6,7 @@
 # Focus is on scanning each page for markdown links/images and template references, then confirming
 # the reference points to a valid file.
 #
-# Note: Only relative markdown links are evaluated. Links via HTMl tags or using URLs are not validated.
+# Note: Only relative markdown links are evaluated. Links using URLs or HTML tags not validated.
 #
 # Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -16,7 +16,7 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitRoot = ""             # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$gitRoot = ""     # Local cloned repository (e.g., "<drive>:\path\to\repo")
 $csvExport = ".\BrokenReferences.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
 
 
@@ -26,11 +26,44 @@ $csvExport = ".\BrokenReferences.csv"   # Where to export the CSV (e.g., "<drive
 ####################
 $scriptStart = Get-Date
 
+# Function expands reference in event file/path contains parenthesis (handles multiples)
+function expandRef ($pageContent, $curRef, $dirName, $pageName) {
+    $broken = $false
+    $open = ($curRef.ToCharArray() | where { $_ -eq "(" }).Count
+    $close = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
+    
+    if ($open -ne $close -and $Global:skipRef -notcontains $curRef) {
+        $Global:skipRef += $curRef
+        $dblCheckRef = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $dblCheckRef | ForEach-Object {
+            expandRef $pageContent $_ $dirName $pageName
+        }
+    }
+
+    if ($open -eq $close) {
+        $dblCheckPath = "$gitRoot" + "\" + $curRef.Replace("/","\")
+        if (-not (Test-Path -LiteralPath $dblCheckPath -ErrorAction SilentlyContinue)){
+            Write-Host -ForegroundColor Cyan "(expandRef) Broken reference: $curRef"
+            # Export to CSV
+            exportCSV $dirName $pageName $curRef
+            $brokenCnt++
+        }
+    }
+}
+
+# Function outputs broken references to CSV file
+function exportCSV ($dirName, $pageName, $ref) {
+    $exportRow = [pscustomobject]@{
+        "DirectoryName" = $dirName
+        "Name" = $pageName
+        "BrokenRef" = $ref
+    }
+    $exportRow | Export-Csv -Path $csvExport -NoTypeInformation -Append
+}
+
+
 # Get pages
 $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
-
-# Get all files
-#$files = Get-ChildItem -Path $gitRoot -Recurse -File
 
 # Parse each page
 $pageCnt = 0
@@ -38,6 +71,7 @@ $brokenCnt = 0
 $pages | ForEach-Object {
     $dirName = $_.DirectoryName.Replace($gitRoot,"").Replace("\","/")
     $pageName = $_.Name
+    $skipRef = @()
     # Console output for current page
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
@@ -49,41 +83,32 @@ $pages | ForEach-Object {
         $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
         $refs | ForEach-Object {
-            # Skip ref?
-            if ($_ -notlike "*http*" -and $_ -notlike "*mailto:*" -and $_ -notlike "*#*" -and $_ -notlike "*<*" -and $_ -notlike "*>*" -and $_ -notlike "*@*" -and $_ -ne "") {
-                # Validate file
-                $checkPath = "$gitRoot" + "\" + $_.Replace("/","\")
-                if (-not (Test-Path -LiteralPath $checkPath -ErrorAction SilentlyContinue) -or $_ -eq $lastRef){
-                    # Check for open parenthensis
-                    if ($_ -like "*(*") {
-                        $dblCheckRef = [regex]::Matches($pageContent, "(" + [regex]::Escape($_) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
-                        $dblCheckRef | ForEach-Object {
-                            $dblCheckPath = "$gitRoot" + "\" + $_.Replace("/","\")
-                            if (-not (Test-Path -LiteralPath $dblCheckPath -ErrorAction SilentlyContinue)){
-                                $broken = $true
-                            }
-                        }
-                    } else {
-                        $broken = $true
-                    }
-                }
-                if ($broken) {
-                    Write-Host -ForegroundColor Cyan "Broken reference: $_"
-                    # Export to CSV
-                    $exportRow = [pscustomobject]@{
-                        "DirectoryName" = $dirName
-                        "Name" = $pageName
-                        "BrokenRef" = $_
-                    }
-                    $exportRow | Export-Csv -Path $csvExport -NoTypeInformation -Append
-                    $brokenCnt++
-                    $broken = $false
-                }
+            # Check if reference should be ignored
+             if ($_ -match "(http|mailto|#|<|>|@|\\\\)" -or $_ -eq $null) {
+                # Skip to next reference
+                return
             }
-            $lastRef = $_
+
+            # Check for parenthesis
+            if ($_ -like "*(*") {
+                # Skip if reference is duplicate on this page
+                if ($skipRef -notcontains $_) {
+                    expandRef $pageContent $_ $dirName $pageName
+                    # Skip to next reference
+                }
+                return
+            }
+
+            # Validate Reference
+            $checkPath = "$gitRoot" + "\" + $_.Replace("/","\")
+            if (-not (Test-Path -LiteralPath $checkPath -ErrorAction SilentlyContinue)){
+                Write-Host -ForegroundColor Cyan "Broken reference: $_"
+                # Export to CSV
+                exportCSV $dirName $pageName $_
+                $brokenCnt++
+            }
         }
     }
-    $lastRef = ""
 
     # Progress bar
     $pageCnt++
