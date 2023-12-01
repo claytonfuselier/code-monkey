@@ -79,8 +79,8 @@ $pages | ForEach-Object {
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
 
     # Look for references
-    if ($pageContent -match "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)") {
-        $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+    if ($pageContent -match "(?<=\[[^\]]*\]\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)") {
+        $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
         $refs | ForEach-Object {
             # Check if reference should be ignored
