@@ -25,8 +25,7 @@ $gitRoot = ""     # Local cloned repository (e.g., "<drive>:\path\to\repo")
 $csvExport = ".\BrokenReferences.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
 $safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should links Outlook "safelinks" be evaluated? (see Summary above)
 
-################################## option to descramble safelinks from emails
-################################## grab bookmark anchors and check them
+
 
 ####################
 ##  Begin Script  ##
@@ -34,26 +33,32 @@ $safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should links Outlook "safelink
 $scriptStart = Get-Date
 
 # Function expands reference in event file/path contains parenthesis (handles multiples)
-function expandRef ($pageContent, $curRef, $pageDir, $pageName) {
-    $broken = $false
+function expandRef ($pageContent, $curRef) {
     $open = ($curRef.ToCharArray() | where { $_ -eq "(" }).Count
     $close = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
     
-    if ($open -ne $close -and $Global:skipRef -notcontains $curRef) {
-        $Global:skipRef += $curRef
-        $dblCheckRef = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
-        $dblCheckRef | ForEach-Object {
-            expandRef $pageContent $_ $pageDir $pageName
+    if ($open -ne $close) {
+        $Global:parenRefs += $curRef
+        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        if ($expanded -gt 1) {
+            #################################################################### Need code for handling when there's multiple matches after expanding
+        }
+        $expanded | ForEach-Object {
+            $results = expandRef $pageContent $_ $pageDir $pageName
+            return $results
         }
     }
 
     if ($open -eq $close) {
+        return $curRef
+<#
         $dblCheckPath = "$gitRoot" + "\" + $curRef.Replace("/","\")
         if (-not (Test-Path -LiteralPath $dblCheckPath -ErrorAction SilentlyContinue)){
             Write-Host -ForegroundColor Cyan "(expandRef) Broken reference: $curRef"
             # Export to CSV
             exportCSV $pageDir $pageName $curRef
         }
+#>
     }
 }
 
@@ -80,7 +85,7 @@ $pages | ForEach-Object {
     $pageDir = $_.DirectoryName.Replace($gitRoot,"").Replace("\","/")
     $pageName = $_.Name
     $pageFullName = $_.FullName
-    $skipRef = @()
+    $parenRefs = @()
     # Console output for current page
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
@@ -136,7 +141,8 @@ $pages | ForEach-Object {
                 { $_ -match "\(" } {
                     # Skip if reference is duplicate on this page
                     if ($skipRef -notcontains $_) {
-                        expandRef $pageContent $_ $pageDir $pageName
+#                        expandRef $pageContent $_
+                        $results = expandRef $pageContent $_ ################################################## need to finish code for processing after expansions
                     }
                     break
                 }
