@@ -38,22 +38,14 @@ function expandRef ($pageContent, $curRef) {
     $close = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
     
     if ($open -ne $close) {
-#        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*((?=(\s=(\d)*x(\d)*)?\))|(?=\s(`"|')[^`"']*(`"|')\)))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         $expanded | ForEach-Object {
-            $results = expandRef $pageContent $_
-            Write-Host "results: $results"
-            return $results
+            expandRef $pageContent $_
         }
     }
 
     if ($open -eq $close) {
-        if ($Global:skipRef -notcontains $curRef) {
-            $Global:skipRef += $curRef
             return $curRef
-        } else {
-            return "expandRef-duplicate"
-        }
     }
 }
 
@@ -70,6 +62,7 @@ function exportCSV ($pageDir, $pageName, $ref, $note) {
 }
 
 
+
 # Get pages
 $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 
@@ -77,7 +70,6 @@ $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 $pageCnt = 0
 $brokenCnt = 0
 $pages | ForEach-Object {
-    Write-Host "new page"
     $pageDir = $_.DirectoryName.Replace($gitRoot,"").Replace("\","/")
     $pageName = $_.Name
     $pageFullName = $_.FullName
@@ -87,22 +79,27 @@ $pages | ForEach-Object {
 
     # Get contents of page
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
-    $pageContent = Get-Content -LiteralPath "C:\Users\clfuseli\git\AzureIaaSVM\SME-Topics\Virtual-Machine-Scale-Sets-(VMSS)\Workflows\VMSS-Uniform\Cannot-Update-Scale-Set-Workflow_VMSS.md" -Encoding UTF8
 
     # Look for references
     if ($pageContent -match "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)") {
         $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
-        $expRef = ""
         $refs | ForEach-Object {
+            $curRef = ""
             # Parentheses in reference
             if ($_ -match "\(" ) {
                 $expRef = expandRef $pageContent $_
-                if ($expRef -eq "expandRef-Duplicate") {
-                    # Skip loop iteration as duplicate
-                    #continue
+
+                if ($expRef.Count -gt 1) {
+                    $expRef | ForEach-Object {
+                        if ($curRef -eq "" -and $skipRef -notcontains $_) {
+                            $curRef = $_
+                            $skipRef += $curRef
+                        }
+                    }
+                } else {
+                    $curRef = $expRef
                 }
-                $curRef = $expRef
             } else {
                 $curRef = $_
             }
@@ -168,6 +165,8 @@ $pages | ForEach-Object {
             }
         }
     }
+
+    Write-Host $skipRef
 
     # Progress bar
     $pageCnt++
