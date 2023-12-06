@@ -38,27 +38,22 @@ function expandRef ($pageContent, $curRef) {
     $close = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
     
     if ($open -ne $close) {
-        $Global:parenRefs += $curRef
-        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
-        if ($expanded -gt 1) {
-            #################################################################### Need code for handling when there's multiple matches after expanding
-        }
+#        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*((?=(\s=(\d)*x(\d)*)?\))|(?=\s(`"|')[^`"']*(`"|')\)))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         $expanded | ForEach-Object {
-            $results = expandRef $pageContent $_ $pageDir $pageName
+            $results = expandRef $pageContent $_
+            Write-Host "results: $results"
             return $results
         }
     }
 
     if ($open -eq $close) {
-        return $curRef
-<#
-        $dblCheckPath = "$gitRoot" + "\" + $curRef.Replace("/","\")
-        if (-not (Test-Path -LiteralPath $dblCheckPath -ErrorAction SilentlyContinue)){
-            Write-Host -ForegroundColor Cyan "(expandRef) Broken reference: $curRef"
-            # Export to CSV
-            exportCSV $pageDir $pageName $curRef
+        if ($Global:skipRef -notcontains $curRef) {
+            $Global:skipRef += $curRef
+            return $curRef
+        } else {
+            return "expandRef-duplicate"
         }
-#>
     }
 }
 
@@ -71,7 +66,7 @@ function exportCSV ($pageDir, $pageName, $ref, $note) {
         "Note" = $note
     }
     $exportRow | Export-Csv -Path $csvExport -NoTypeInformation -Append
-    $brokenCnt++
+    $Global:brokenCnt++
 }
 
 
@@ -82,39 +77,47 @@ $pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File
 $pageCnt = 0
 $brokenCnt = 0
 $pages | ForEach-Object {
+    Write-Host "new page"
     $pageDir = $_.DirectoryName.Replace($gitRoot,"").Replace("\","/")
     $pageName = $_.Name
     $pageFullName = $_.FullName
-    $parenRefs = @()
+    $skipRef = @()
     # Console output for current page
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
     # Get contents of page
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
+    $pageContent = Get-Content -LiteralPath "C:\Users\clfuseli\git\AzureIaaSVM\SME-Topics\Virtual-Machine-Scale-Sets-(VMSS)\Workflows\VMSS-Uniform\Cannot-Update-Scale-Set-Workflow_VMSS.md" -Encoding UTF8
 
     # Look for references
     if ($pageContent -match "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)") {
         $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
-        $refId = 0
+        $expRef = ""
         $refs | ForEach-Object {
-            switch ($_) {
+            # Parentheses in reference
+            if ($_ -match "\(" ) {
+                $expRef = expandRef $pageContent $_
+                if ($expRef -eq "expandRef-Duplicate") {
+                    # Skip loop iteration as duplicate
+                    #continue
+                }
+                $curRef = $expRef
+            } else {
+                $curRef = $_
+            }
+
+            switch ($curRef) {
                 # Ignored/skipped items (email, placeholders, etc.)
-                { $_ -match "(mailto:|file:|<|>|@|\\\\)" -or $_ -eq $null } {
+                { $curRef -match "(mailto:|file:|<|>|@|\\\\)" -or $curRef -eq $null } {
                     # Skip to next interation of loop
                     break
                 }
 
                 # URLs
-                { $_ -match "https?:" } {
-                    # Skip if $safeLinks is 0 or URL is not Outlook SafeLink
-                    if (-not $safeLinks -or $_ -notmatch "(https?://(\w|\d)+\.safelinks\.protection\.outlook\.com/)") {
-                        # Skip to next interation of loop
-                        break
-                    }
-
+                { $curRef -match "https?:" } {
                     # Outlook SafeLinks
-                    if ($safeLinks -gt 0 -and $_ -match "(https?://(\w|\d)+\.safelinks\.protection\.outlook\.com/)") {
+                    if ($safeLinks -gt 0 -and $curRef -match "(https?://(\w|\d)+\.safelinks\.protection\.outlook\.com/)") {
                         # Extract URI
                         $uri = [regex]::Matches($pageContent,"(?<=url=)[^&]*", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
                         # Reverse URL encoding
@@ -122,7 +125,7 @@ $pages | ForEach-Object {
                         # Modify ref in link
                         if ($safeLinks -eq 2) {
                             # Edit link in page content
-                            $pageContent = $pageContent -ireplace $_, $decodedUri
+                            $pageContent = $pageContent -ireplace $curRef, $decodedUri
                             # Save edit
                             Set-Content -LiteralPath $pageFullName -Value $pageContent -Encoding UTF8
                             $note = "SafeLinks (AUTO-REPLACED): $decodedUri"
@@ -130,79 +133,39 @@ $pages | ForEach-Object {
                             # Do not modify ref in link
                             $note = "SafeLinks: $decodedUri"
                         }
-                        Write-Host -ForegroundColor Cyan "Broken reference: $_"
+                        Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                         # Export to CSV
-                        exportCSV $pageDir $pageName $_ $note
+                        exportCSV $pageDir $pageName $curRef $note
+                        break
+                    } else {
+                        # Skip to next interation of loop
                         break
                     }
                 }
 
-                # Parentheses in reference
-                { $_ -match "\(" } {
-                    # Skip if reference is duplicate on this page
-                    if ($skipRef -notcontains $_) {
-#                        expandRef $pageContent $_
-                        $results = expandRef $pageContent $_ ################################################## need to finish code for processing after expansions
-                    }
-                    break
-                }
-
                 # Jump links
-                { $_ -match "^#" } {
-                    $jumpLink = [regex]::Matches($_,"(?<=#)[^\s]*", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
-                    $jumpLinkText = [System.Uri]::UnescapeDataString($_.Replace("-"," "))
-                    if ($pageContent -notmatch [regex]::Escape($jumpLinkText)) {
-                        Write-Host -ForegroundColor Cyan "Broken reference: $_"
+                { $curRef -match "^#" } {
+                    $jumpLinkText = ([System.Uri]::UnescapeDataString($curRef.Replace("#", "").Replace("---", " - "))) -replace "(?<=\w)-(?=\w)", " "
+                    $jumpLinks = [regex]::Matches($pageContent,[regex]::Escape($jumpLinkText), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+                    if ($jumpLinks.Count -eq 0) {
+                        Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                         # Export to CSV
-                        exportCSV $pageDir $pageName $_ "`"Jump Link`" ($jumpLinkText) not found in page contents"
+                        exportCSV $pageDir $pageName $curRef "Jump Link: `"$jumpLinkText`" not found in page contents"
                     }
                     break
                 }
 
                 # Default validation (file based)
                 default {
-                    $checkPath = "$gitRoot" + $_.Replace("/","\")
+                    $checkPath = "$gitRoot" + $curRef.Replace("/","\")
                     if (-not (Test-Path -LiteralPath $checkPath -ErrorAction SilentlyContinue)){
-                        Write-Host -ForegroundColor Cyan "Broken reference: $_"
+                        Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                         # Export to CSV
-                        exportCSV $pageDir $pageName $_
+                        exportCSV $pageDir $pageName $curRef
                     }
                     break
                 }
             }
-<#
-            # Check if reference should be ignored
-            if ($_ -match "(mailto:|file:|<|>|@|\\\\)" -or $_ -eq $null) {
-                # Skip to next reference
-                return
-            }
-
-            # Check for Microsoft SafeLinks
-            if ($safeLinks) {
-                if ($_ -match "(https?://(\w|\d)+\.safelinks\.protection\.outlook\.com/)") {
-
-                }
-            }
-
-            # Check for parenthesis
-            if ($_ -like "*(*") {
-                # Skip if reference is duplicate on this page
-                if ($skipRef -notcontains $_) {
-                    expandRef $pageContent $_ $pageDir $pageName
-                    # Skip to next reference
-                }
-                return
-            }
-
-            # Validate reference
-            $checkPath = "$gitRoot" + $_.Replace("/","\")
-            if (-not (Test-Path -LiteralPath $checkPath -ErrorAction SilentlyContinue)){
-                Write-Host -ForegroundColor Cyan "Broken reference: $_"
-                # Export to CSV
-                exportCSV $pageDir $pageName $_
-            }
-#>
-        $refId++
         }
     }
 
