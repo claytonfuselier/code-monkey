@@ -33,18 +33,34 @@ $safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should links Outlook "safelink
 $scriptStart = Get-Date
 
 # Function expands reference in event file/path contains parenthesis (handles multiples)
-function expandRef ($pageContent, $curRef) {
-    $open = ($curRef.ToCharArray() | where { $_ -eq "(" }).Count
-    $close = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
+function expandRef ($pageContent, $curRef, $encapsed) {
+    $openCurve = ($curRef.ToCharArray() | where { $_ -eq "(" }).Count
+    $closeCurve = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
+
+    $openSquare = ($curRef.ToCharArray() | where { $_ -eq "[" }).Count
+    $closeSquare = ($curRef.ToCharArray() | where { $_ -eq "]" }).Count
     
-    if ($open -ne $close) {
-        $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*((?=(\s=(\d)*x(\d)*)?\))|(?=\s(`"|')[^`"']*(`"|')\)))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+    # Parentheses    
+    if ($openCurve -ne $closeCurve) {
+        if ($encapsed) {
+            $expanded = [regex]::Matches($pageContent, "(" + [regex]::Escape($curRef) + ")[^\)]*\)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        } else {
+            $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*((?=(\s=(\d)*x(\d)*)?\))|(?=\s(`"|')[^`"']*(`"|')\)))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        }
         $expanded | ForEach-Object {
-            expandRef $pageContent $_
+            expandRef $pageContent $_ $encapsed
         }
     }
 
-    if ($open -eq $close) {
+    # Square brackets    
+    if ($openSquare -ne $closeSquare -and -not $expanded) {
+        $expanded = [regex]::Matches($pageContent, "(" + [regex]::Escape($curRef) + ")[^\]]*\][^\(]*\([^\)]*\)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $expanded | ForEach-Object {
+            expandRef $pageContent $_ $encapsed
+        }
+    }
+
+    if ($openCurve -eq $closeCurve -and $openSquare -eq $closeSquare) {
             return $curRef
     }
 }
@@ -53,7 +69,7 @@ function expandRef ($pageContent, $curRef) {
 function exportCSV ($pageDir, $pageName, $ref, $note) {
     $exportRow = [pscustomobject]@{
         "DirectoryName" = $pageDir
-        "Name" = $pageName
+        "PageName" = $pageName
         "BrokenRef" = $ref
         "Note" = $note
     }
@@ -80,16 +96,52 @@ $pages | ForEach-Object {
     # Get contents of page
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
 
+    # Look for link/image syntax errors
+    if ($pageContent -match "(!\s*)?\[[^\]]*\]\s*\([^\)]*\)(\s*\]\s*\([^\)]*\))?") {
+        $linksImages = [regex]::Matches($pageContent, "(!\s*)?\[[^\]]*\]\s*\([^\)]*\)(\s*\]\s*\([^\)]*\))?", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $linksImages | ForEach-Object {
+            # Check for open brackets
+            $openCurve = ($_.ToCharArray() | where { $_ -eq "(" }).Count
+            $closeCurve = ($_.ToCharArray() | where { $_ -eq ")" }).Count
+
+            $openSquare = ($_.ToCharArray() | where { $_ -eq "[" }).Count
+            $closeSquare = ($_.ToCharArray() | where { $_ -eq "]" }).Count
+
+            if ($openCurve -ne $closeCurve -or $openSquare -ne $closeSquare) {
+                $expRef = expandRef $pageContent $_ $true
+                if ($expRef.Count -gt 1) {
+                    $expRef | ForEach-Object {
+                        if ($curRef -eq "" -and $skipRef -notcontains $_) {
+                            $curRef = $_
+                            $skipRef += $curRef
+                        }
+                    }
+                } else {
+                    $curRef = $expRef
+                }
+            } else {
+                $curRef = $_
+            }
+
+            # Check for unwanted spaces
+            if ($curRef -match "((?<=\])\s+(?=\())|((?<=!)\s+(?=\[))") {
+                Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
+                # Export to CSV
+                $note = "Syntax: Check for improperly used spaces."
+                exportCSV $pageDir $pageName $curRef $note
+            }
+        }
+    }
+
     # Look for references
-    if ($pageContent -match "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)") {
-        $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(?!http)[^\)\s]*(?=(\s=(\d)*x(\d)*)?\))|((?<=:::\s*template\s*)[^\s]*)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+    if ($pageContent -match "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))") {
+        $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
         $refs | ForEach-Object {
             $curRef = ""
             # Parentheses in reference
             if ($_ -match "\(" ) {
                 $expRef = expandRef $pageContent $_
-
                 if ($expRef.Count -gt 1) {
                     $expRef | ForEach-Object {
                         if ($curRef -eq "" -and $skipRef -notcontains $_) {
@@ -116,13 +168,13 @@ $pages | ForEach-Object {
                     # Outlook SafeLinks
                     if ($safeLinks -gt 0 -and $curRef -match "(https?://(\w|\d)+\.safelinks\.protection\.outlook\.com/)") {
                         # Extract URI
-                        $uri = [regex]::Matches($pageContent,"(?<=url=)[^&]*", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+                        $uri = [regex]::Matches($curRef,"(?<=url=)[^&]*", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
                         # Reverse URL encoding
                         $decodedUri = [System.Uri]::UnescapeDataString($uri)
                         # Modify ref in link
                         if ($safeLinks -eq 2) {
                             # Edit link in page content
-                            $pageContent = $pageContent -ireplace $curRef, $decodedUri
+                            $pageContent = $pageContent -ireplace [regex]::Escape($curRef), $decodedUri
                             # Save edit
                             Set-Content -LiteralPath $pageFullName -Value $pageContent -Encoding UTF8
                             $note = "SafeLinks (AUTO-REPLACED): $decodedUri"
@@ -136,18 +188,22 @@ $pages | ForEach-Object {
                         break
                     } else {
                         # Skip to next interation of loop
-                        break
+                        break ################################################################ add code to test URLs for an HTTP 200 response
                     }
                 }
 
                 # Jump links
                 { $curRef -match "^#" } {
-                    $jumpLinkText = ([System.Uri]::UnescapeDataString($curRef.Replace("#", "").Replace("---", " - "))) -replace "(?<=\w)-(?=\w)", " "
-                    $jumpLinks = [regex]::Matches($pageContent,[regex]::Escape($jumpLinkText), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+                    $jumpText = [System.Uri]::UnescapeDataString($curRef)
+                    $jumpText = $jumpText.Replace("#", "").Replace("---", " - ")
+                    $jumpTextEsc = [regex]::Escape($jumpText)
+                    $jumpTextPat = $jumpTextEsc -replace "(?<=[^\s])-(?=[^\s])", "(-|\s)"
+                    $jumpLinks = [regex]::Matches($pageContent,$jumpTextPat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
                     if ($jumpLinks.Count -eq 0) {
                         Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                         # Export to CSV
-                        exportCSV $pageDir $pageName $curRef "Jump Link: `"$jumpLinkText`" not found in page contents"
+                        $note = "Jump link not found in page contents"
+                        exportCSV $pageDir $pageName $curRef $note
                     }
                     break
                 }
@@ -165,8 +221,6 @@ $pages | ForEach-Object {
             }
         }
     }
-
-    Write-Host $skipRef
 
     # Progress bar
     $pageCnt++
