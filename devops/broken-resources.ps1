@@ -13,7 +13,7 @@
 #
 # Note: Only relative Markdown links are evaluated. Links using URLs or HTML tags are not validated.
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/broken-resources.ps1
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
