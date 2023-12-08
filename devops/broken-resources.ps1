@@ -3,15 +3,26 @@
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
 #
-# Focus is on scanning each page for Markdown links/images and template references, then confirming
-# the reference points to a valid file.
+# Focus is on scanning each page for Markdown links, images, and templates, then validating
+# their syntax and confirming they reference valid files.
 #
-# safeLinks: (Optional) The script can also identify and report any "safelinks.protection.outlook.com"
-# links that are detected. These are often copied from emails without realizing. You can choose (1) to
-# have the link reported with a note of the decoded target URL, or (2) have the script report AND
-# auto-update the link with the decoded URL.
+# Potentially broken resources are exported via CSV at the path in $csvExport.
 #
-# Note: Only relative Markdown links are evaluated. Links using URLs or HTML tags are not validated.
+# Optional ($safeLinks): The script can also identify and decode/report any links pointing to a
+# "safelinks.protection.outlook.com" URL. These URLs are often copied from emails etc. without
+# realizing. You can choose (1) to have the link reported with a note of the decoded target URL,
+# or (2) have the script report AND auto-update the link with the decoded URL.
+#
+# Note: Only relative Markdown links (e.g. "[text](/path/to/item)") are evaluated. Links with
+#       URLs are only evaluated for syntax (with the exception for $safeLinks). HTML anchor
+#       (e.g., <a>) and image (e.g., <img>) tags are ignored entirely.
+#
+# Note: If you see red error messages or if the script unexpectedly hangs for an extended time,
+#       there are likely syntax errors with parenthesis/bracks ("()" and "[]") that are causing
+#       unexpected issues with the RegEx patterns. Try running the page through an online syntax
+#       highlighter then trying again.
+#
+# Note: False positives may appear in the exported CSV, and are expected to a certain degree.
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -22,8 +33,8 @@
 ##  Required Variables  ##
 ##########################
 $gitRoot = ""     # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$csvExport = ".\BrokenReferences.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
-$safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should links Outlook "safelinks" be evaluated? (see Summary above)
+$csvExport = ".\BrokenResources.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
+$safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should Outlook "safelinks" be evaluated? (see Summary above)
 
 
 
@@ -33,7 +44,7 @@ $safeLinks = 1    # 0=Ignore, 1=Report; 2=Modify; Should links Outlook "safelink
 $scriptStart = Get-Date
 
 # Function expands reference in event file/path contains parenthesis (handles multiples)
-function expandRef ($pageContent, $curRef, $encapsed) {
+function expandRef ($pageContent, $curRef, $encapsulated) {
     $openCurve = ($curRef.ToCharArray() | where { $_ -eq "(" }).Count
     $closeCurve = ($curRef.ToCharArray() | where { $_ -eq ")" }).Count
 
@@ -42,13 +53,13 @@ function expandRef ($pageContent, $curRef, $encapsed) {
     
     # Parentheses    
     if ($openCurve -ne $closeCurve) {
-        if ($encapsed) {
+        if ($encapsulated) {
             $expanded = [regex]::Matches($pageContent, "(" + [regex]::Escape($curRef) + ")[^\)]*\)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         } else {
             $expanded = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()(" + [regex]::Escape($curRef) + ")\)[^\)\s]*((?=(\s=(\d)*x(\d)*)?\))|(?=\s(`"|')[^`"']*(`"|')\)))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         }
         $expanded | ForEach-Object {
-            expandRef $pageContent $_ $encapsed
+            expandRef $pageContent $_ $encapsulated
         }
     }
 
@@ -56,7 +67,7 @@ function expandRef ($pageContent, $curRef, $encapsed) {
     if ($openSquare -ne $closeSquare -and -not $expanded) {
         $expanded = [regex]::Matches($pageContent, "(" + [regex]::Escape($curRef) + ")[^\]]*\][^\(]*\([^\)]*\)", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         $expanded | ForEach-Object {
-            expandRef $pageContent $_ $encapsed
+            expandRef $pageContent $_ $encapsulated
         }
     }
 
@@ -103,7 +114,6 @@ $pages | ForEach-Object {
             # Check for open brackets
             $openCurve = ($_.ToCharArray() | where { $_ -eq "(" }).Count
             $closeCurve = ($_.ToCharArray() | where { $_ -eq ")" }).Count
-
             $openSquare = ($_.ToCharArray() | where { $_ -eq "[" }).Count
             $closeSquare = ($_.ToCharArray() | where { $_ -eq "]" }).Count
 
@@ -133,33 +143,27 @@ $pages | ForEach-Object {
         }
     }
 
-    # Get templates and mermaid charts    ^:{3}([^:]*|:[^:])*:{3}
-    # Missing space after type            ^:{3}(\ |\t)*(template|mermaid)[^\s]
-    # Extra line breadk at beginning      ^:{3}\ *\n\ *(template|mermaid)
-    # missing link break after "mermaid"  ^:{3}(\ |\t)*mermaid(\ |\t)*[^\n]
-    # no line break at all          ^:{3}[^\n]*:{3}
-
-    # Get templates and charts
-    if ($pageContent -match "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})"){
-        $tempCharts = [regex]::Matches($pageContent, "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
-        $tempCharts | ForEach-Object
+    # Look for template syntax errors
+    if ($pageContent -match "^:{3}\s*template\s*[^:]*:{3}$") {
+        $templates = [regex]::Matches($pageContent, "^:{3}\s*template\s*[^:]*:{3}$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $templates | ForEach-Object {
             # Check for missing spaces
-            if ($_ -match "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})") {
+            if ($_ -match "(^:{3}(\ |\t)*template[^\s])|(^:{3}\ *\n\ *template)|(^:{3}[^\n]*:{3})") {
                 Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                 # Export to CSV
-                $note = "Syntax: Check for improper spacing and new lines."
+                $note = "Syntax: Check for improper spacing and line breaks."
                 exportCSV $pageDir $pageName $curRef $note
             }
         }
     }
 
-    # Look for file/path references
+    # Validate link/image/template filepaths
     if ($pageContent -match "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))") {
         $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
         $refs | ForEach-Object {
             $curRef = ""
-            # Parentheses in reference
+            # Check for parentheses in reference
             if ($_ -match "\(" ) {
                 $expRef = expandRef $pageContent $_
                 if ($expRef.Count -gt 1) {
@@ -177,9 +181,9 @@ $pages | ForEach-Object {
             }
 
             switch ($curRef) {
-                # Ignored/skipped items (email, placeholders, etc.)
+                # Ignored/skipped items (email, placeholders, UNC, etc.)
                 { $curRef -match "(mailto:|file:|<|>|@|\\\\)" -or $curRef -eq $null } {
-                    # Skip to next interation of loop
+                    # Skip to next iteration of loop
                     break
                 }
 
@@ -195,7 +199,7 @@ $pages | ForEach-Object {
                         if ($safeLinks -eq 2) {
                             # Edit link in page content
                             $pageContent = $pageContent -ireplace [regex]::Escape($curRef), $decodedUri
-                            # Save edit
+                            # Save edited content
                             Set-Content -LiteralPath $pageFullName -Value $pageContent -Encoding UTF8
                             $note = "SafeLinks (AUTO-REPLACED): $decodedUri"
                         } else {
@@ -207,8 +211,8 @@ $pages | ForEach-Object {
                         exportCSV $pageDir $pageName $curRef $note
                         break
                     } else {
-                        # Skip to next interation of loop
-                        break ################################################################ add code to test URLs for an HTTP 200 response
+                        # Skip to next iteration of loop
+                        break
                     }
                 }
 
@@ -217,8 +221,8 @@ $pages | ForEach-Object {
                     $jumpText = [System.Uri]::UnescapeDataString($curRef)
                     $jumpText = $jumpText.Replace("#", "").Replace("---", " - ")
                     $jumpTextEsc = [regex]::Escape($jumpText)
-                    $jumpTextPat = $jumpTextEsc -replace "(?<=[^\s])-(?=[^\s])", "(-|\s)"
-                    $jumpLinks = [regex]::Matches($pageContent,$jumpTextPat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+                    $jumpTextPattern = $jumpTextEsc -replace "(?<=[^\s])-(?=[^\s])", "(-|\s)"
+                    $jumpLinks = [regex]::Matches($pageContent,$jumpTextPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
                     if ($jumpLinks.Count -eq 0) {
                         Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                         # Export to CSV
