@@ -127,13 +127,33 @@ $pages | ForEach-Object {
             if ($curRef -match "((?<=\])\s+(?=\())|((?<=!)\s+(?=\[))") {
                 Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                 # Export to CSV
-                $note = "Syntax: Check for improperly used spaces."
+                $note = "Syntax: Check for improper spacing."
                 exportCSV $pageDir $pageName $curRef $note
             }
         }
     }
 
-    # Look for references
+    # Get templates and mermaid charts    ^:{3}([^:]*|:[^:])*:{3}
+    # Missing space after type            ^:{3}(\ |\t)*(template|mermaid)[^\s]
+    # Extra line breadk at beginning      ^:{3}\ *\n\ *(template|mermaid)
+    # missing link break after "mermaid"  ^:{3}(\ |\t)*mermaid(\ |\t)*[^\n]
+    # no line break at all          ^:{3}[^\n]*:{3}
+
+    # Get templates and charts
+    if ($pageContent -match "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})"){
+        $tempCharts = [regex]::Matches($pageContent, "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
+        $tempCharts | ForEach-Object
+            # Check for missing spaces
+            if ($_ -match "(^:{3}(\ |\t)*(template|mermaid)[^\s])|(^:{3}\ *\n\ *(template|mermaid))|(^:{3}(\ |\t)*mermaid(\ |\t)*[^\n])|(^:{3}[^\n]*:{3})") {
+                Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
+                # Export to CSV
+                $note = "Syntax: Check for improper spacing and new lines."
+                exportCSV $pageDir $pageName $curRef $note
+            }
+        }
+    }
+
+    # Look for file/path references
     if ($pageContent -match "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))") {
         $refs = [regex]::Matches($pageContent, "(?<=\[[^\]]*\]\s*\()[^\)\s]*((?=(\s+=(\d)*x(\d)*\s*)?\))|(?=(\s+(`"|`')[^`"`']*(`"|`')\s*)?\)))*|((?<=:::\s*template\s*)[^\s]*)|(?<=\[[^\]]*\]\s*\([^\)]*\)\s*[^\]]*\]\s*\()[^\)]*(?=\))", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Value
         # Parse references
