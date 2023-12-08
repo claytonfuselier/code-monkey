@@ -24,11 +24,13 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitRoot = ""             # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$userResPaths = @("", "")  # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
-$graveyard = "$gitRoot\.graveyard"   # Location for archived pages (e.g., "$gitRoot\.graveyard")
-$moveFiles = 0            # 0=No, 1=Yes; Move files to $graveyard
-$csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
+$gitRoot = ""         # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$userResPaths = @()   # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
+$graveyard = "$gitRoot\.graveyard"       # Location for archived pages (e.g., "$gitRoot\.graveyard")
+$moveFiles = 0        # 0=No, 1=Yes; Move files to $graveyard
+$csvExport = ".\OrphanedFiles.csv"       # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
+
+
 
 ####################
 ##  Begin Script  ##
@@ -36,17 +38,17 @@ $csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\
 
 # Get pages
 Write-Host -ForegroundColor Cyan "Gathering pages..."
-$pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File | where { $_.DirectoryName -ne $graveyard }
+$pages = Get-ChildItem -Path $gitRoot -Filter "*.md" -Recurse -File | where { $_.DirectoryName -notlike "$graveyard*" }
 
 # Get all non-page files
 Write-Host -ForegroundColor Cyan "Gathering non-page files..."
-$files = Get-ChildItem -Path $gitRoot -Recurse -File | where { $_.DirectoryName -ne $graveyard `
+$files = Get-ChildItem -Path $gitRoot -Recurse -File | where { $_.DirectoryName -notlike "$graveyard*" `
                                                          -and $_.Extension -ne ".md" `
                                                          -and $_.Extension -ne ".archive" `
                                                          -and $_.BaseName -ne "" }
 
 # Get user provided resources
-if ($userResPaths -ne "") {
+if ($userResPaths.Count -eq 0) {
     Write-Host -ForegroundColor Cyan "Gathering files in user provided path(s)..."
     $userRes = Get-ChildItem -Path $userResPaths -Recurse -File | where { $_.BaseName -ne "" }
 
@@ -65,6 +67,7 @@ Write-Host -ForegroundColor Cyan "Finalizing array..."
 $files | ForEach-Object {
     $AdoPath = $_.FullName.Replace($gitRoot,"").Replace("\","/")
     if ($AdoPath[0] -eq "/") {
+        # Remove leading "/" to ensure promper page syntax doesn't create false positive
         $AdoPath = $AdoPath.Substring(1)
     }
 
@@ -76,19 +79,17 @@ $files | ForEach-Object {
 Write-Host -ForegroundColor Cyan "Defining search blocks of 100 from the array..."
 $searchBlocks = @()
 $rMin = 0
-$rMax = 100
+$rMax = 99
 $cur = 0
 while ($rMin -le $files.Count) {
     $pattern = "("
     # Create each block of 100
-    while ($cur -le $rMax) {
-        if ($files[$cur].AdoPath -ne $null) {
-            $separator = "|"
-            if ($cur -eq $rMax -or $cur -eq ($files.Count -1)) {
-                $separator = ""
-            }
-            $pattern = "$pattern" + [regex]::Escape($files[$cur].AdoPath) + "$separator"
+    while ($cur -le $rMax -and $cur -lt $files.Count) {
+        $separator = "|"
+        if ($cur -eq $rMax -or $cur -eq ($files.Count -1)) {
+            $separator = ""
         }
+        $pattern = "$pattern" + [regex]::Escape($files[$cur].AdoPath) + "$separator"
         $cur++
     }
     $pattern = "$pattern" + ")"
@@ -118,7 +119,7 @@ $pages | ForEach-Object {
             $curFile = $curBlock * 100
             $blockEnd = $curFile + 99
             while ($curFile -le $blockEnd -and $curFile -lt $files.Count) {
-                if ($pageContent -match [regex]::Escape($files[$curFile].AdoPath.ToLower())) {
+                if ($pageContent -match [regex]::Escape($files[$curFile].AdoPath)) {
                     # Updating the matched file UseCount
                     $files[$curFile].UseCount++
                     $matches++
@@ -158,14 +159,15 @@ $orphans | ForEach-Object {
         }
 
         # Move to the graveyard
-        Move-Item -LiteralPath $_.FullName -Destination $dest
+        Move-Item -LiteralPath $_.FullName -Destination $dest -ErrorAction SilentlyContinue
     }
 
     # Export to CSV
     $exportRow = [pscustomobject]@{
-        "DirectoryName" = $_.DirectoryName
+        "DirectoryName" = $_.DirectoryName.Replace($gitRoot,"")
         "Name" = $_.Name
         "Extension" = $_.Extension
+        "AdoPath" = $_.AdoPath
         "MovedTo" = $dest
     }
     $exportRow | Export-Csv -Path $csvExport -NoTypeInformation -Append
