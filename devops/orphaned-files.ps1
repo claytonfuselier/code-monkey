@@ -48,7 +48,7 @@ $files = Get-ChildItem -Path $gitRoot -Recurse -File | where { $_.DirectoryName 
                                                          -and $_.BaseName -ne "" }
 
 # Get user provided resources
-if ($userResPaths.Count -eq 0) {
+if ($userResPaths.Count -gt 0) {
     Write-Host -ForegroundColor Cyan "Gathering files in user provided path(s)..."
     $userRes = Get-ChildItem -Path $userResPaths -Recurse -File | where { $_.BaseName -ne "" }
 
