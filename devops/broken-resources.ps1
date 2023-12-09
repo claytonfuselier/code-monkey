@@ -232,6 +232,14 @@ $pages | ForEach-Object {
                     break
                 }
 
+                # Check for multiple forward-slashes
+                { $curRef -match "\/{2,}" } {
+                    Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
+                    # Export to CSV
+                    $note = "Warning: Path *likely* works, but contains extra forward-slashes."
+                    exportCSV $pageDir $pageName $curRef $note
+                }
+
                 # Default validation (file based)
                 default {
                     $checkPath = "$gitRoot" + $curRef.Replace("/","\")
