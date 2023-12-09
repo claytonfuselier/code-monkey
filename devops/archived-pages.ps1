@@ -21,7 +21,7 @@
 ##  Required Variables  ##
 ##########################
 $gitRoot = ""            # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$graveyard = ""          # Where to move archived pages
+$graveyard = "$gitRoot\.graveyard"          # Where to move archived pages
 $maintainStructure = 1   # 0=No, 1=Yes; Create same folder structure in the graveyard?
 
 
@@ -50,11 +50,14 @@ $archivedPages | ForEach-Object {
 
     # Create path if non-existent
     if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
-        New-Item -ItemType Directory -Path $dest -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $dest -ErrorAction SilentlyContinue | Out-Null
     }
 
     # Move to graveyard
     Move-Item -LiteralPath $_.FullName -Destination $dest
+    if ($?) {
+        Write-Host -ForegroundColor Gray "Relocated " $_.FullName.Replace($gitRoot,"")
+    }
 
     # Progress bar
     $pageCnt++
