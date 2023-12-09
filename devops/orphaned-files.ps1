@@ -24,11 +24,11 @@
 ##########################
 ##  Required Variables  ##
 ##########################
-$gitRoot = ""         # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$userResPaths = @()   # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
-$graveyard = "$gitRoot\.graveyard"       # Location for archived pages (e.g., "$gitRoot\.graveyard")
-$moveFiles = 0        # 0=No, 1=Yes; Move files to $graveyard
-$csvExport = ".\OrphanedFiles.csv"       # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
+$gitRoot = ""             # Local cloned repository (e.g., "<drive>:\path\to\repo")
+$userResPaths = @()  # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
+$graveyard = "$gitRoot\.graveyard"   # Location for archived pages (e.g., "$gitRoot\.graveyard")
+$moveFiles = 0            # 0=No, 1=Yes; Move files to $graveyard
+$csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
 
 
 
