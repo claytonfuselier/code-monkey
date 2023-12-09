@@ -3,8 +3,8 @@
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repository).
 #
-# Focus is on scanning each page for Markdown links, images, and templates, then validating
-# their syntax and confirming they reference valid files.
+# Focus is on scanning each page for Markdown links, images, and templates, then validating their
+# syntax and confirming they reference valid files.
 #
 # Potentially broken resources are exported via CSV at the path in $csvExport.
 #
@@ -22,7 +22,8 @@
 #       unexpected issues with the RegEx patterns. Try running the page through an online syntax
 #       highlighter then trying again.
 #
-# Note: False positives may appear in the exported CSV, and are expected to a certain degree.
+# Note: False positives may appear in the exported CSV, and are expected to a certain degree if the
+# page contains example log outputs etc.
 #
 # Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
@@ -87,7 +88,6 @@ function exportCSV ($pageDir, $pageName, $ref, $note) {
     $exportRow | Export-Csv -Path $csvExport -NoTypeInformation -Append
     $Global:brokenCnt++
 }
-
 
 
 # Get pages
@@ -232,12 +232,13 @@ $pages | ForEach-Object {
                     break
                 }
 
-                # Check for multiple forward-slashes
-                { $curRef -match "\/{2,}" } {
+                # Check forward\back slashes
+                { $curRef -match "\/{2,}" -or $curRef -match "\\" } {
                     Write-Host -ForegroundColor Cyan "Broken reference: $curRef"
                     # Export to CSV
-                    $note = "Warning: Path *likely* works, but contains extra forward-slashes."
+                    $note = "Warning: Resource *might* work, but the path contains improper use of forward\back slashes."
                     exportCSV $pageDir $pageName $curRef $note
+                    break
                 }
 
                 # Default validation (file based)
