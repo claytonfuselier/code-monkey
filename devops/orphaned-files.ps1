@@ -3,11 +3,11 @@
 ###############
 # Intended use is on CodeWiki pages in a locally cloned Azure DevOps (or similar local repositiory).
 #
-# Focus is on finding resources (files without .md extension), that are not referenced by on pages.
+# Focus is on finding resources (files without .md extension), that are not referenced by on any page.
 #
 # Additionally, you can provide path(s) for $userResPath and every file (including .md) will be
 # evaluated to see if it is in-use by other pages or has been orphaned. This is useful if you have
-# template .md pages that are embedded in other pages, and stored in a central local (e.g. "./templates").
+# template .md pages that are embedded in other pages, and stored in a central location (e.g. "./templates").
 #
 # Optional: Set $moveFiles to 1 ("yes"), to have any identified orphaned files moved to $graveyard.
 # - Recommendation is to run the script at least once WITHOUT moving files ($moveFiles = 0) and reviewing
@@ -25,12 +25,10 @@
 ##  Required Variables  ##
 ##########################
 $gitRoot = ""             # Local cloned repository (e.g., "<drive>:\path\to\repo")
-$userResPaths = @()  # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
+$userResPaths = @()       # (optional) Paths containing known resources (e.g., "path1", "path2", etc.)
 $graveyard = "$gitRoot\.graveyard"   # Location for archived pages (e.g., "$gitRoot\.graveyard")
-$moveFiles = 0            # 0=No, 1=Yes; Move files to $graveyard
+$moveFiles = 1            # 0=No, 1=Yes; Move files to $graveyard
 $csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
-
-
 
 ####################
 ##  Begin Script  ##
@@ -155,11 +153,14 @@ $orphans | ForEach-Object {
 
         # Create the path if non-existent
         if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
-            New-Item -ItemType Directory -Path $dest -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path $dest | Out-Null
         }
 
         # Move to the graveyard
-        Move-Item -LiteralPath $_.FullName -Destination $dest -ErrorAction SilentlyContinue
+        Move-Item -LiteralPath $_.FullName -Destination $dest
+        if ($?) {
+            Write-Host -ForegroundColor Gray "Relocated " $_.FullName.Replace($gitRoot,"")
+        }
     }
 
     # Export to CSV
