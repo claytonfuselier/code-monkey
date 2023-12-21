@@ -22,7 +22,6 @@
 ##########################
 $gitRoot = ""            # Local cloned repository (e.g., "<drive>:\path\to\repo")
 $graveyard = "$gitRoot\.graveyard"          # Where to move archived pages
-$maintainStructure = 1   # 0=No, 1=Yes; Create same folder structure in the graveyard?
 
 
 
