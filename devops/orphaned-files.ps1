@@ -30,6 +30,8 @@ $graveyard = "$gitRoot\.graveyard"   # Location for archived pages (e.g., "$gitR
 $moveFiles = 1            # 0=No, 1=Yes; Move files to $graveyard
 $csvExport = ".\OrphanedFiles.csv"   # Where to export the CSV (e.g., "<drive>:\path\to\file.csv")
 
+
+
 ####################
 ##  Begin Script  ##
 ####################
@@ -161,6 +163,8 @@ $orphans | ForEach-Object {
         if ($?) {
             Write-Host -ForegroundColor Gray "Relocated " $_.FullName.Replace($gitRoot,"")
         }
+    } else {
+        $dest = "File not moved."
     }
 
     # Export to CSV
