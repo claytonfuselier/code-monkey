@@ -25,7 +25,7 @@
 # Note: False positives may appear in the exported CSV, and are expected to a certain degree if the
 # page contains example log outputs etc.
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/broken-resources.ps1
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/get-broken-resources.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 

@@ -16,7 +16,7 @@
 # Note: The script attempts to maintain the existing tab/indentation to not disrupt the flow or appearance
 #       of any content. Be sure to review all changes to ensure they render properly and as desired.
 #
-# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/modify-images.ps1
+# Source: https://github.com/claytonfuselier/code-monkey/blob/main/devops/modify-html-images.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 

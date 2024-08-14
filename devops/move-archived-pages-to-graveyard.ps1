@@ -5,10 +5,10 @@
 #
 # Focus is on idenfitying .archive files and relocating them to the specified location ($graveyard),
 # in a subfolder with the current date. This script assumes that pages no longer needed (but not
-# deleted), are renamed with the extension ".archive" to prevent them from rendering in the ADO wiki.
+# deleted), and renamed with the extension ".archive" to prevent them from rendering in the ADO wiki.
 #
-# You are STRONGLY encouraged to run an "Orphaned Files" script to find and clean up any no longer
-# needed images, templates, etc.
+# You are STRONGLY encouraged to run the orphaned files script to find and clean up any no longer
+# needed images, templates, etc. first.
 #
 # Note: The script will ignore/exclude any files currently in the $graveyard destination.
 #
