@@ -16,7 +16,7 @@
 # Note: $userResPaths supports multiple paths using the following syntax:
 #       $userResPaths = @("drive:\path\to\include", "drive:\another\path\to\include")
 #
-# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/find-orphaned-files.ps1
+# Source: https://github.com/claytonfuselier/KM-Scripts/blob/main/get-orphaned-files.ps1
 # Help: https://github.com/claytonfuselier/code-monkey/wiki
 
 
