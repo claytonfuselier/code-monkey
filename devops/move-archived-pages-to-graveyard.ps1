@@ -39,13 +39,20 @@ $graveyard = $graveyard + "\archived-" + (Get-Date -Format "yyyyMMdd")
 # Parse archived pages
 $pageCnt = 0
 $movedPages = 0
+$errCnt = 0
 $archivedPages | ForEach-Object {
     # Console output for current page
     Write-Host -ForegroundColor Gray $_.FullName.Replace($gitRoot,"")
 
-    # Define destination
+    # Define destination (and replace missing .md)
     $curRelPath = $_.DirectoryName.Replace($gitRoot, "")
-    $dest = $graveyard + $curRelPath
+    if ($_.FullName.Split(".")[-2] -contains "md"){
+        $dest = $graveyard + $curRelPath
+    } else {
+        $curRelPath = $curRelPath.Replace(".archive","") + ".md.archive"
+        $dest = $graveyard + $curRelPath
+        Write-Host -ForegroundColor Cyan "Restored missing `".md`""
+    }
 
     # Create path if non-existent
     if (-not (Test-Path -LiteralPath $dest -ErrorAction SilentlyContinue)) {
@@ -55,7 +62,10 @@ $archivedPages | ForEach-Object {
     # Move to graveyard
     Move-Item -LiteralPath $_.FullName -Destination $dest
     if ($?) {
-        Write-Host -ForegroundColor Gray "Relocated " $_.FullName.Replace($gitRoot,"")
+        Write-Host -ForegroundColor Cyan "Moved to graveyard"
+        $movedPages++
+    } else {
+        $errCnt++
     }
 
     # Progress bar
@@ -66,5 +76,7 @@ $archivedPages | ForEach-Object {
     $percent = [MATH]::Round(($pageCnt / $archivedPages.Count) * 100, 2)
     Write-Progress -Activity "Moving Archived Pages to Graveyard ($percent %)" -Status "$pageCnt of $($archivedPages.Count) total pages - $time" -PercentComplete $percent
 }
-
-Write-Host -ForegroundColor Yellow "Pages Identified: $($archivedPages.Count)"
+Write-Host "`n"
+Write-Host -ForegroundColor Yellow "Archived Pages Found: $($archivedPages.Count)"
+Write-Host -ForegroundColor Yellow "Pages Moved: $movedPages"
+Write-Host -ForegroundColor Yellow "Errors: $errCnt"
