@@ -5,7 +5,7 @@
 #
 # Focus is on performing a find and replace operation using a CSV file containing pairs of old and
 # new strings. The script will replace every occurrence of an "old" string with its corresponding
-# "new" string across all .md files.
+# "new" string across all .md files. The find matching is NOT case-sensitive.
 #
 # Note: The CSV should consist of two columns with the old string in column "OldString" and the new string
 #       in column "NewString".
@@ -60,29 +60,32 @@ $pages | ForEach-Object {
     $pageContent = Get-Content -LiteralPath $_.FullName -Encoding UTF8
 
     # Loop through $csvItems checking for matches in $pageContent
-    $edited = 0
+    $edited = $false
     $totalMatches = 0
 
-    $csvItems | ForEach-Object {
-        # Counting/Checking for matches
-        $matches = ([regex]::Matches($pageContent, [regex]::Escape($_.OldString), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    # Ensure page is not blank
+    if ($pageContent.Length -gt 0) {
+        $csvItems | ForEach-Object {
+            # Counting/Checking for matches
+            $matchedItems = ([regex]::Matches($pageContent, [regex]::Escape($_.OldString), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
 
-        if ($matches -gt 0) {
-            # Find and replace
-            $pageContent = $pageContent -ireplace [regex]::Escape($_.OldString), $_.NewString
-            $edited = 1
-            $totalMatches += $matches
+            if ($matchedItems -gt 0) {
+                # Find and replace
+                $pageContent = $pageContent -ireplace [regex]::Escape($_.OldString), $_.NewString
+                $edited = $true
+                $totalMatches += $matches
+            }
         }
-    }
 
-    if ($edited) {
-        # Save the new content
-        Set-Content -LiteralPath $_.FullName -Value $pageContent -Encoding UTF8
+        if ($edited) {
+            # Save the new content
+            Set-Content -LiteralPath $_.FullName -Value $pageContent -Encoding UTF8
 
-        # Console output plus running tally
-        Write-Host -ForegroundColor Cyan "Updated $totalMatches Match(es)"
-        $totalEdits += $totalMatches
-        $editedPages++
+            # Console output plus running tally
+            Write-Host -ForegroundColor Cyan "Updated $totalMatches Match(es)"
+            $totalEdits += $totalMatches
+            $editedPages++
+        }
     }
 
     # Progress bar
